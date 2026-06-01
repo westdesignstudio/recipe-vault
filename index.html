@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Recipe Vault</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f9f8f5;color:#1a1a1a;min-height:100vh}
+.app{max-width:900px;margin:0 auto;padding:2rem 1rem}
+h1{font-size:22px;font-weight:500;display:flex;align-items:center;gap:8px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;gap:12px;flex-wrap:wrap}
+.btn{background:transparent;border:1px solid #ccc;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;color:#1a1a1a;transition:background .15s;font-family:inherit}
+.btn:hover{background:#eee}
+.btn.primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.btn.primary:hover{opacity:.85}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.25rem}
+.pill{padding:5px 14px;border-radius:20px;font-size:13px;border:1px solid #ddd;cursor:pointer;background:transparent;color:#666;transition:all .15s;font-family:inherit}
+.pill:hover{border-color:#999;color:#1a1a1a}
+.pill.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.card{background:#fff;border:1px solid #e8e8e4;border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.card:hover{border-color:#bbb;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card-img-wrap{width:100%;height:145px;background:#f0ede8;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:36px;overflow:hidden}
+.card-img-wrap img{width:100%;height:145px;object-fit:cover;display:block}
+.card-body{padding:12px 14px}
+.card-body h3{font-size:15px;font-weight:500;margin-bottom:3px;line-height:1.35}
+.card-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:7px}
+.tag{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;letter-spacing:.01em}
+.tag-breakfast{background:#FAEEDA;color:#633806}
+.tag-lunch{background:#EAF3DE;color:#27500A}
+.tag-dinner{background:#E6F1FB;color:#0C447C}
+.tag-snack{background:#FBEAF0;color:#72243E}
+.tag-dessert{background:#EEEDFE;color:#3C3489}
+.tag-drink{background:#E1F5EE;color:#085041}
+.tag-default{background:#f0ede8;color:#666}
+.source{font-size:12px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;z-index:100}
+.modal{background:#fff;border-radius:14px;border:1px solid #e8e8e4;width:100%;max-width:640px;overflow:hidden;position:relative;margin:auto}
+.modal-img-wrap{width:100%;height:210px;background:#f0ede8;display:flex;align-items:center;justify-content:center;font-size:52px;color:#ccc;overflow:hidden}
+.modal-img-wrap img{width:100%;height:210px;object-fit:cover;display:block}
+.modal-body{padding:1.35rem}
+.modal-title{font-size:20px;font-weight:500;margin-bottom:.2rem}
+.modal-source{font-size:13px;color:#999;margin-bottom:.85rem}
+.modal-source a{color:#185FA5;text-decoration:none}
+.modal-source a:hover{text-decoration:underline}
+.section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#999;margin-bottom:.7rem;margin-top:1.3rem}
+.controls-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:.5rem}
+.unit-toggle{display:flex;gap:4px}
+.toggle-btn{padding:4px 12px;border-radius:8px;border:1px solid #ddd;background:transparent;font-size:13px;cursor:pointer;color:#666;font-family:inherit}
+.toggle-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.serv-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#666}
+.serv-row .sc-btn{padding:2px 10px;font-size:16px;line-height:1.4}
+.serv-val{font-size:14px;font-weight:500;color:#1a1a1a;min-width:22px;text-align:center}
+.ing-list{list-style:none}
+.ing-list li{padding:7px 0;border-bottom:1px solid #f0ede8;font-size:14px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ing-list li:last-child{border:none}
+.ing-name{color:#1a1a1a}
+.ing-amt{color:#888;font-size:13px;white-space:nowrap}
+.inst-list{list-style:none}
+.inst-list li{padding:10px 0;border-bottom:1px solid #f0ede8;font-size:14px;line-height:1.65;display:flex;gap:12px}
+.inst-list li:last-child{border:none}
+.step-num{font-size:12px;font-weight:600;color:#bbb;min-width:18px;padding-top:3px;flex-shrink:0}
+.close-btn{position:absolute;top:12px;right:12px;background:#fff;border:1px solid #ddd;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:#666;z-index:10}
+.close-btn:hover{background:#f0ede8}
+
+/* Add form */
+.add-form{background:#fff;border:1px solid #e8e8e4;border-radius:12px;padding:1.35rem;margin-bottom:1.5rem}
+.add-form-title{font-size:16px;font-weight:500;margin-bottom:1rem}
+.field{margin-bottom:.9rem}
+.field label{display:block;font-size:13px;color:#666;margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a;font-size:14px;font-family:inherit;outline:none}
+.field input:focus,.field textarea:focus{border-color:#999}
+.field textarea{resize:vertical;line-height:1.55}
+.form-row{display:flex;gap:10px}
+.form-row .field{flex:1}
+.empty{text-align:center;padding:3rem;color:#bbb;font-size:15px}
+.hint{font-size:12px;color:#aaa;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1><i class="ti ti-book-2"></i> My recipe vault</h1>
+    <button class="btn primary" onclick="openAdd()"><i class="ti ti-plus"></i> Add recipe</button>
+  </div>
+  <div class="filters" id="filters"></div>
+  <div id="add-form-area"></div>
+  <div class="grid" id="grid"></div>
+  <div id="modal-area"></div>
+</div>
+
+<script>
+const CATEGORIES = ['all','breakfast','lunch','dinner','snack','dessert','drink'];
+const BREAKFAST_KW = ['egg','pancake','waffle','oatmeal','toast','bagel','muffin','frittata','omelet','granola','french toast','biscuit','scone','smoothie bowl','porridge','cereal','crepe','quiche'];
+const LUNCH_KW = ['sandwich','wrap','salad','soup','quesadilla','panini','bowl','pita','taco','burger','club','blt','ramen','pho','sushi'];
+const DINNER_KW = ['chicken','beef','pasta','steak','roast','salmon','shrimp','pork','lamb','casserole','stew','curry','risotto','lasagna','bake','grilled','chili','fillet','tenderloin','cod','tilapia','turkey'];
+const SNACK_KW = ['hummus','chips','dip','trail mix','granola bar','popcorn','bruschetta','crostini','nuts','guacamole','pretzel','edamame','energy ball','protein ball'];
+const DESSERT_KW = ['cake','cookie','brownie','pie','tart','mousse','pudding','ice cream','cheesecake','cupcake','fudge','truffle','meringue','tiramisu','macaron','sorbet','gelato','donut','crumble','cobbler','biscotti','shortbread'];
+const DRINK_KW = ['cocktail','smoothie','juice','lemonade','tea','coffee','latte','shake','punch','spritz','margarita','mojito','mocktail'];
+
+const IMP_TO_MET = {
+  'cup':{'factor':236.588,'unit':'ml'},'cups':{'factor':236.588,'unit':'ml'},
+  'tbsp':{'factor':14.787,'unit':'ml'},'tablespoon':{'factor':14.787,'unit':'ml'},'tablespoons':{'factor':14.787,'unit':'ml'},
+  'tsp':{'factor':4.929,'unit':'ml'},'teaspoon':{'factor':4.929,'unit':'ml'},'teaspoons':{'factor':4.929,'unit':'ml'},
+  'oz':{'factor':28.3495,'unit':'g'},'ounce':{'factor':28.3495,'unit':'g'},'ounces':{'factor':28.3495,'unit':'g'},
+  'lb':{'factor':453.592,'unit':'g'},'lbs':{'factor':453.592,'unit':'g'},'pound':{'factor':453.592,'unit':'g'},'pounds':{'factor':453.592,'unit':'g'},
+  'fl oz':{'factor':29.5735,'unit':'ml'},'pt':{'factor':473.176,'unit':'ml'},'pint':{'factor':473.176,'unit':'ml'},'pints':{'factor':473.176,'unit':'ml'},
+  'qt':{'factor':946.353,'unit':'ml'},'quart':{'factor':946.353,'unit':'ml'},'quarts':{'factor':946.353,'unit':'ml'},
+  'gal':{'factor':3785.41,'unit':'ml'},'gallon':{'factor':3785.41,'unit':'ml'},
+  'g':{'factor':1,'unit':'g'},'gram':{'factor':1,'unit':'g'},'grams':{'factor':1,'unit':'g'},
+  'kg':{'factor':1000,'unit':'g'},'kilogram':{'factor':1000,'unit':'g'},
+  'ml':{'factor':1,'unit':'ml'},'l':{'factor':1000,'unit':'ml'},'liter':{'factor':1000,'unit':'ml'},'liters':{'factor':1000,'unit':'ml'}
+};
+
+function classifyRecipe(title, ingredients) {
+  const txt = (title + ' ' + ingredients).toLowerCase();
+  if (DRINK_KW.some(k => txt.includes(k))) return 'drink';
+  if (DESSERT_KW.some(k => txt.includes(k))) return 'dessert';
+  if (BREAKFAST_KW.some(k => txt.includes(k))) return 'breakfast';
+  if (SNACK_KW.some(k => txt.includes(k))) return 'snack';
+  if (LUNCH_KW.some(k => txt.includes(k))) return 'lunch';
+  if (DINNER_KW.some(k => txt.includes(k))) return 'dinner';
+  return 'dinner';
+}
+
+function evalFraction(s) {
+  s = s.trim();
+  if (s.includes(' ')) {
+    const parts = s.split(/\s+/);
+    let total = 0;
+    for (const p of parts) {
+      if (p.includes('/')) { const [a,b] = p.split('/'); total += parseFloat(a)/parseFloat(b); }
+      else total += parseFloat(p)||0;
+    }
+    return total;
+  }
+  if (s.includes('/')) { const [a,b] = s.split('/'); return parseFloat(a)/parseFloat(b); }
+  return parseFloat(s)||null;
+}
+
+function parseIngredients(raw) {
+  return raw.split('\n').filter(l => l.trim()).map(line => {
+    line = line.trim().replace(/^[-•*]\s*/, '');
+    const m = line.match(/^([\d\/\s\.\-]+)\s*(cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|oz|ounce|ounces|lb|lbs|pound|pounds|fl oz|pt|pint|pints|qt|quart|quarts|gal|gallon|g|gram|grams|kg|kilogram|ml|l|liter|liters)?\s*(.+)?$/i);
+    if (m) {
+      const qty = m[1] ? evalFraction(m[1].trim()) : null;
+      const unit = m[2] || null;
+      const name = m[3] ? m[3].replace(/^,\s*/, '').trim() : line;
+      return { qty, unit, name: name||line };
+    }
+    return { qty: null, unit: null, name: line };
+  });
+}
+
+function formatQty(qty, unit, scale, metric) {
+  if (qty === null) return unit || '';
+  let scaledQty = qty * scale;
+  let displayUnit = unit || '';
+  if (metric && unit) {
+    const key = unit.toLowerCase();
+    const conv = IMP_TO_MET[key];
+    if (conv) {
+      scaledQty = scaledQty * conv.factor;
+      displayUnit = conv.unit;
+      if (scaledQty >= 1000 && displayUnit === 'ml') { scaledQty /= 1000; displayUnit = 'L'; }
+      if (scaledQty >= 1000 && displayUnit === 'g') { scaledQty /= 1000; displayUnit = 'kg'; }
+    }
+  }
+  let display;
+  if (scaledQty >= 10) display = Math.round(scaledQty).toString();
+  else if (scaledQty >= 1) display = parseFloat(scaledQty.toFixed(1)).toString();
+  else display = parseFloat(scaledQty.toFixed(2)).toString();
+  return displayUnit ? `${display} ${displayUnit}` : display;
+}
+
+const SAMPLE = [
+  {
+    id: 1, title: 'Classic banana pancakes', url: 'https://www.allrecipes.com/recipe/20177/banana-pancakes-i/',
+    image: 'https://www.allrecipes.com/thmb/0EoFE7DDgU6FcaGBpFLmMQ5k6hU=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/2166040-banana-pancakes-Chef-John-081-3x4-1-de5e09ba1a8c497e9c3f2ccb4b7f5e98.jpg',
+    servings: 4, baseServings: 4, category: 'breakfast',
+    ingredients: [
+      {qty:1.5,unit:'cups',name:'all-purpose flour'},{qty:3.5,unit:'tsp',name:'baking powder'},
+      {qty:1,unit:'tsp',name:'salt'},{qty:1,unit:'tbsp',name:'white sugar'},
+      {qty:1.25,unit:'cups',name:'milk'},{qty:1,unit:null,name:'large egg'},
+      {qty:3,unit:'tbsp',name:'melted butter'},{qty:2,unit:null,name:'ripe bananas, mashed'}
+    ],
+    instructions: [
+      'Whisk together the flour, baking powder, salt, and sugar in a large bowl.',
+      'Make a well in the center and pour in the milk, egg, and melted butter. Mix until smooth, then fold in the mashed bananas.',
+      'Heat a lightly oiled griddle or skillet over medium-high heat. Pour the batter by ¼ cup portions onto the griddle.',
+      'Cook until bubbles appear on the surface and the edges look dry, then flip and cook until golden brown.',
+      'Serve immediately with maple syrup and fresh fruit.'
+    ]
+  },
+  {
+    id: 2, title: 'Chicken tikka masala', url: 'https://www.bonappetit.com/recipe/chicken-tikka-masala',
+    image: 'https://assets.bonappetit.com/photos/5a6c34cde72f4401a60e94e3/1:1/w_960%2Cc_limit/chicken-tikka-masala.jpg',
+    servings: 4, baseServings: 4, category: 'dinner',
+    ingredients: [
+      {qty:2,unit:'lbs',name:'boneless chicken thighs, cubed'},{qty:1,unit:'cup',name:'plain yogurt'},
+      {qty:2,unit:'tbsp',name:'lemon juice'},{qty:2,unit:'tsp',name:'cumin'},
+      {qty:2,unit:'tsp',name:'garam masala'},{qty:1,unit:'tsp',name:'turmeric'},
+      {qty:3,unit:'tbsp',name:'oil, divided (2 tbsp marinade, 1 tbsp sauce)'},
+      {qty:1,unit:null,name:'large onion, diced'},{qty:4,unit:null,name:'garlic cloves, minced'},
+      {qty:1,unit:'tbsp',name:'fresh ginger, grated'},{qty:2,unit:'cups',name:'crushed tomatoes'},
+      {qty:1,unit:'cup',name:'heavy cream'},{qty:null,unit:null,name:'salt and pepper to taste'}
+    ],
+    instructions: [
+      'Combine chicken with yogurt, lemon juice, cumin, garam masala, turmeric, and oil. Marinate at least 30 minutes, ideally overnight.',
+      'Grill or broil the marinated chicken until slightly charred. Set aside.',
+      'Sauté onion in remaining oil over medium heat until golden, about 10 minutes. Add garlic and ginger; cook 2 more minutes.',
+      'Stir in crushed tomatoes and simmer for 15 minutes until thickened.',
+      'Pour in heavy cream and add the cooked chicken. Simmer together for 10 minutes.',
+      'Season with salt and pepper. Serve over basmati rice with naan.'
+    ]
+  },
+  {
+    id: 3, title: 'No-bake chocolate energy balls', url: '',
+    image: '',
+    servings: 16, baseServings: 16, category: 'snack',
+    ingredients: [
+      {qty:1,unit:'cup',name:'rolled oats'},{qty:0.5,unit:'cup',name:'peanut butter'},
+      {qty:0.25,unit:'cup',name:'honey'},{qty:0.25,unit:'cup',name:'dark chocolate chips'},
+      {qty:2,unit:'tbsp',name:'chia seeds'},{qty:1,unit:'tsp',name:'vanilla extract'}
+    ],
+    instructions: [
+      'Stir all ingredients together in a large bowl until fully combined.',
+      'Refrigerate the mixture for 30 minutes to firm it up.',
+      'Roll into 1-inch balls using your hands, working quickly so the mixture stays cool.',
+      'Store in an airtight container in the fridge for up to one week.'
+    ]
+  }
+];
+
+let recipes = [];
+try { recipes = JSON.parse(localStorage.getItem('rv_recipes') || 'null') || SAMPLE; } catch(e) { recipes = SAMPLE; }
+let activeFilter = 'all';
+let showAdd = false;
+let openRecipe = null;
+
+function save() { try { localStorage.setItem('rv_recipes', JSON.stringify(recipes)); } catch(e) {} }
+
+function hostName(url) {
+  try { return new URL(url.startsWith('http') ? url : 'https://' + url).hostname.replace('www.',''); }
+  catch(e) { return url; }
+}
+
+function renderFilters() {
+  const el = document.getElementById('filters');
+  const counts = {};
+  CATEGORIES.forEach(c => { counts[c] = c === 'all' ? recipes.length : recipes.filter(r => r.category === c).length; });
+  el.innerHTML = CATEGORIES.filter(c => c === 'all' || counts[c] > 0).map(c => `
+    <button class="pill ${activeFilter === c ? 'active' : ''}" onclick="setFilter('${c}')">
+      ${c.charAt(0).toUpperCase() + c.slice(1)}${c !== 'all' ? ' (' + counts[c] + ')' : ''}
+    </button>`).join('');
+}
+
+function setFilter(f) { activeFilter = f; renderFilters(); renderGrid(); }
+
+function renderGrid() {
+  const filtered = activeFilter === 'all' ? recipes : recipes.filter(r => r.category === activeFilter);
+  const el = document.getElementById('grid');
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty"><i class="ti ti-bowl-chopsticks" style="font-size:36px;display:block;margin-bottom:.5rem"></i>No recipes in this category yet</div>';
+    return;
+  }
+  el.innerHTML = filtered.map(r => `
+    <div class="card" onclick="openModal(${r.id})">
+      <div class="card-img-wrap">
+        ${r.image ? `<img src="${r.image}" alt="${escHtml(r.title)}" onerror="this.parentNode.innerHTML='<i class=\\'ti ti-bowl-chopsticks\\'></i>'" loading="lazy">` : '<i class="ti ti-bowl-chopsticks"></i>'}
+      </div>
+      <div class="card-body">
+        <h3>${escHtml(r.title)}</h3>
+        ${r.url ? `<div class="source">${hostName(r.url)}</div>` : ''}
+        <div class="card-meta">
+          <span class="tag tag-${r.category || 'default'}">${cap(r.category || 'other')}</span>
+          <span style="font-size:12px;color:#999"><i class="ti ti-users" style="font-size:12px;vertical-align:-1px"></i> ${r.baseServings}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openModal(id) {
+  openRecipe = recipes.find(r => r.id === id);
+  if (!openRecipe) return;
+  if (!openRecipe._scale) openRecipe._scale = 1;
+  if (openRecipe._metric === undefined) openRecipe._metric = false;
+  renderModal();
+  document.body.style.overflow = 'hidden';
+}
+
+function renderModal() {
+  const r = openRecipe;
+  if (!r) return;
+  const scale = r._scale || 1;
+  const metric = r._metric || false;
+  const servings = Math.round(r.baseServings * scale);
+  document.getElementById('modal-area').innerHTML = `
+    <div class="modal-bg" onclick="maybeClose(event)">
+      <div class="modal">
+        <button class="close-btn" onclick="closeModal()" aria-label="Close"><i class="ti ti-x"></i></button>
+        <div class="modal-img-wrap">
+          ${r.image ? `<img src="${r.image}" alt="${escHtml(r.title)}" onerror="this.style.display='none'">` : '<i class="ti ti-bowl-chopsticks"></i>'}
+        </div>
+        <div class="modal-body">
+          <div class="modal-title">${escHtml(r.title)}</div>
+          ${r.url ? `<div class="modal-source">From <a href="${r.url.startsWith('http') ? r.url : 'https://' + r.url}" target="_blank">${hostName(r.url)}</a></div>` : ''}
+          <span class="tag tag-${r.category || 'default'}" style="display:inline-block;margin-bottom:.75rem">${cap(r.category || 'other')}</span>
+          <div class="controls-row">
+            <div class="unit-toggle">
+              <button class="toggle-btn ${!metric ? 'active' : ''}" onclick="setMetric(false)">Imperial</button>
+              <button class="toggle-btn ${metric ? 'active' : ''}" onclick="setMetric(true)">Metric</button>
+            </div>
+            <div class="serv-row">
+              <span>Servings</span>
+              <button class="btn sc-btn" onclick="adjustScale(-1)">−</button>
+              <span class="serv-val">${servings}</span>
+              <button class="btn sc-btn" onclick="adjustScale(1)">+</button>
+            </div>
+          </div>
+          <div class="section-label">Ingredients</div>
+          <ul class="ing-list">
+            ${r.ingredients.map(ing => `
+              <li>
+                <span class="ing-name">${escHtml(ing.name)}</span>
+                <span class="ing-amt">${ing.qty !== null ? escHtml(formatQty(ing.qty, ing.unit, scale, metric)) : (ing.unit || 'to taste')}</span>
+              </li>`).join('')}
+          </ul>
+          <div class="section-label">Instructions</div>
+          <ol class="inst-list">
+            ${r.instructions.map((step, i) => `<li><span class="step-num">${i+1}</span><span>${escHtml(step)}</span></li>`).join('')}
+          </ol>
+          <div style="margin-top:1.25rem;display:flex;gap:8px">
+            <button class="btn" onclick="deleteRecipe(${r.id})" style="color:#c0392b;border-color:#e8c0bb"><i class="ti ti-trash"></i> Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function maybeClose(e) { if (e.target.classList.contains('modal-bg')) closeModal(); }
+function setMetric(val) { if (openRecipe) { openRecipe._metric = val; renderModal(); } }
+function adjustScale(dir) {
+  if (!openRecipe) return;
+  const base = openRecipe.baseServings;
+  let cur = Math.round(base * (openRecipe._scale || 1));
+  cur = Math.max(1, cur + dir);
+  openRecipe._scale = cur / base;
+  renderModal();
+}
+function closeModal() {
+  document.getElementById('modal-area').innerHTML = '';
+  document.body.style.overflow = '';
+  openRecipe = null;
+}
+function deleteRecipe(id) {
+  if (!confirm('Delete this recipe?')) return;
+  recipes = recipes.filter(r => r.id !== id);
+  save();
+  closeModal();
+  renderFilters();
+  renderGrid();
+}
+
+function openAdd() {
+  showAdd = !showAdd;
+  renderAddForm();
+}
+
+function renderAddForm() {
+  const el = document.getElementById('add-form-area');
+  if (!showAdd) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="add-form">
+      <div class="add-form-title"><i class="ti ti-plus"></i> Add new recipe</div>
+      <div class="field">
+        <label>Recipe URL (optional)</label>
+        <input type="url" id="new-url" placeholder="https://...">
+        <div class="hint">Paste the URL, then copy the main photo URL from the site and paste it in the image field below</div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Recipe title *</label><input type="text" id="new-title" placeholder="e.g. Spaghetti carbonara"></div>
+        <div class="field" style="max-width:110px"><label>Servings</label><input type="number" id="new-servings" value="4" min="1"></div>
+      </div>
+      <div class="field">
+        <label>Image URL (optional)</label>
+        <input type="url" id="new-img" placeholder="Paste image link from the recipe site">
+      </div>
+      <div class="field">
+        <label>Ingredients — one per line (e.g. "2 cups flour", "3 tbsp oil, divided")</label>
+        <textarea id="new-ings" rows="7" placeholder="2 cups all-purpose flour&#10;1 tsp salt&#10;3 tbsp olive oil, divided&#10;2 large eggs&#10;1 lb ground beef"></textarea>
+      </div>
+      <div class="field">
+        <label>Instructions — one step per line</label>
+        <textarea id="new-inst" rows="7" placeholder="Mix the dry ingredients together in a large bowl.&#10;Add the wet ingredients and stir until just combined.&#10;Bake at 350°F for 25 minutes until golden."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:.25rem">
+        <button class="btn primary" onclick="saveRecipe()">Save recipe</button>
+        <button class="btn" onclick="openAdd()">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function saveRecipe() {
+  const title = document.getElementById('new-title')?.value?.trim();
+  const url = document.getElementById('new-url')?.value?.trim() || '';
+  const img = document.getElementById('new-img')?.value?.trim() || '';
+  const ingsRaw = document.getElementById('new-ings')?.value?.trim() || '';
+  const instRaw = document.getElementById('new-inst')?.value?.trim() || '';
+  const servings = parseInt(document.getElementById('new-servings')?.value) || 4;
+  if (!title) { alert('Please enter a recipe title.'); return; }
+  const ingredients = parseIngredients(ingsRaw);
+  const instructions = instRaw.split('\n').filter(l => l.trim());
+  const category = classifyRecipe(title, ingsRaw);
+  const id = Date.now();
+  recipes.push({ id, title, url, image: img, servings, baseServings: servings, category, ingredients, instructions });
+  save();
+  showAdd = false;
+  renderAddForm();
+  renderFilters();
+  renderGrid();
+}
+
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+function escHtml(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+renderFilters();
+renderGrid();
+</script>
+</body>
+</html>
