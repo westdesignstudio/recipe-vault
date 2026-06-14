@@ -53,11 +53,6 @@ h1 i{font-size:22px;opacity:.5}
 .tag-dessert{background:#EEEDFE;color:#3C3489}
 .tag-drink{background:#E1F5EE;color:#085041}
 .tag-default{background:var(--bg-muted);color:#666}
-.tag-vegan{background:#D6F0E0;color:#0A5C2E}
-.tag-vegetarian{background:#E8F5D6;color:#2E5C0A}
-.tag-gluten-free{background:#FEF3DC;color:#7A4F00}
-.tag-dairy-free{background:#E8EEF8;color:#1A3A6B}
-.filter-group-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:4px}
 
 /* Modal */
 .modal-bg{position:fixed;inset:0;background:rgba(24,24,24,.52);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;z-index:100;backdrop-filter:blur(2px)}
@@ -155,7 +150,6 @@ h1 i{font-size:22px;opacity:.5}
 
 <script>
 const CATEGORIES = ['all','breakfast','lunch','dinner','snack','dessert','drink'];
-const TAGS = ['vegan','vegetarian','gluten-free','dairy-free'];
 const BREAKFAST_KW = ['egg','pancake','waffle','oatmeal','toast','bagel','muffin','frittata','omelet','granola','french toast','biscuit','scone','smoothie bowl','porridge','cereal','crepe','quiche'];
 const LUNCH_KW = ['sandwich','wrap','salad','soup','quesadilla','panini','bowl','pita','taco','burger','club','blt','ramen','pho','sushi'];
 const DINNER_KW = ['chicken','beef','pasta','steak','roast','salmon','shrimp','pork','lamb','casserole','stew','curry','risotto','lasagna','bake','grilled','chili','fillet','tenderloin','cod','tilapia','turkey'];
@@ -253,7 +247,7 @@ function dbToRecipe(row) {
     servings: row.servings || row.base_servings,
     baseServings: row.base_servings,
     category: row.category || '',
-    tags: (row.tags || []).includes('vegan') && !(row.tags || []).includes('vegetarian') ? [...row.tags, 'vegetarian'] : (row.tags || []),
+    tags: row.tags || [],
     ingredients: row.ingredients || [],
     instructions: row.instructions || [],
     cookedDates: row.cooked_dates || [],
@@ -324,12 +318,6 @@ function renderFilters() {
             ${c === 'all' ? 'All' : cap(c)}${c !== 'all' ? ' (' + counts[c] + ')' : ''}
           </button>`).join('')}
       </div>
-      ${hasTags ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${TAGS.filter(t => tagCounts[t] > 0).map(t => `
-          <button class="pill ${activeTags.has(t) ? 'active' : ''}" onclick="toggleTag('${t}')">
-            ${cap(t)} (${tagCounts[t]})
-          </button>`).join('')}
-      </div>` : ''}
     </div>`;
 }
 
@@ -354,7 +342,6 @@ function renderGrid() {
         ${r.url ? `<div class="source">${hostName(r.url)}</div>` : ''}
         <div class="card-meta">
           <span class="tag tag-${r.category || 'default'}">${cap(r.category || 'other')}</span>
-          ${(r.tags||[]).map(t => `<span class="tag tag-${t}">${cap(t)}</span>`).join('')}
           <span style="font-size:12px;color:#999"><i class="ti ti-users" style="font-size:12px;vertical-align:-1px"></i> ${r.baseServings}</span>
         </div>
         ${(r.cookedDates&&r.cookedDates.length) ? `<div style="font-size:11px;color:#aaa;padding:0 14px 10px;margin-top:-4px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> ${r.cookedDates[r.cookedDates.length-1]}</div>` : ''}
@@ -388,7 +375,6 @@ function renderModal() {
           <div class="modal-title">${escHtml(r.title)}</div>
           ${r.url ? `<div class="modal-source">From <a href="${r.url.startsWith('http') ? r.url : 'https://' + r.url}" target="_blank">${hostName(r.url)}</a></div>` : ''}
           <span class="tag tag-${r.category || 'default'}" style="display:inline-block;margin-bottom:.75rem">${cap(r.category || 'other')}</span>
-          ${(r.tags||[]).map(t => `<span class="tag tag-${t}" style="display:inline-block;margin-bottom:.75rem;margin-left:4px">${cap(t)}</span>`).join('')}
           <div class="controls-row">
             <div class="unit-toggle">
               <button class="toggle-btn ${!metric ? 'active' : ''}" onclick="setMetric(false)">Imperial</button>
@@ -671,12 +657,6 @@ function renderAddForm() {
         <textarea id="new-inst" rows="7" placeholder="Mix the dry ingredients together in a large bowl.&#10;Add the wet ingredients and stir until just combined.&#10;Bake at 350°F for 25 minutes until golden."></textarea>
       </div>
       <div class="field">
-        <label>Tags</label>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
-          ${TAGS.map(t => `<label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="new-tag-${t}" value="${t}"> ${cap(t)}</label>`).join('')}
-        </div>
-      </div>
-      <div class="field">
         <label>Nutrition per serving (optional)</label>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px">
           ${[['Calories','calories'],['Protein (g)','protein'],['Carbs (g)','carbs'],['Fat (g)','fat'],['Fiber (g)','fiber'],['Sugar (g)','sugar'],['Sodium (mg)','sodium']].map(([label,key]) =>
@@ -702,12 +682,11 @@ async function saveRecipe() {
   const ingredients = parseIngredients(ingsRaw);
   const instructions = instRaw.split('\n').filter(l => l.trim());
   const category = classifyRecipe(title, ingsRaw);
-  const tags = TAGS.filter(t => document.getElementById('new-tag-' + t)?.checked);
   const id = Date.now();
   const nutKeys = ['calories','protein','carbs','fat','fiber','sugar','sodium'];
   const nutrition = {};
   nutKeys.forEach(k => { const v = document.getElementById('new-nut-'+k)?.value; if (v !== '' && v != null) nutrition[k] = parseFloat(v); });
-  const recipe = { id, title, url, image: img, servings, baseServings: servings, category, tags, ingredients, instructions, cookedDates: [], ratings: {}, comments: [], nutrition };
+  const recipe = { id, title, url, image: img, servings, baseServings: servings, category, ingredients, instructions, cookedDates: [], ratings: {}, comments: [], nutrition };
   await save(recipe);
   recipes.push(recipe);
   showAdd = false;
