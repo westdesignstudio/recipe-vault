@@ -153,6 +153,14 @@ h1 i{font-size:22px;opacity:.5}
 .plan-shop-items{list-style:none}
 .plan-shop-items li{font-size:13px;padding:5px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px}
 .plan-shop-items li:last-child{border:none}
+.ac-wrap{position:relative}
+.ac-input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text);font-size:13px;font-family:'Inter',inherit;outline:none}
+.ac-input:focus{border-color:#999}
+.ac-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:50;max-height:200px;overflow-y:auto;margin-top:2px}
+.ac-item{padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border-light)}
+.ac-item:last-child{border:none}
+.ac-item:hover,.ac-item.active{background:var(--bg-muted)}
+.ac-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-faint);font-size:14px;padding:2px 4px}
 .plan-row{background:var(--bg-muted);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
 .plan-row-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .plan-row-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text)}
@@ -795,18 +803,59 @@ async function savePlan() {
   }, { onConflict: 'week_start' });
 }
 
-function recipeOptions(category, selectedId) {
-  const list = recipes.filter(r => r.category === category);
-  return `<option value="">-- none --</option>` +
-    list.map(r => `<option value="${r.id}" ${selectedId == r.id ? 'selected' : ''}>${escHtml(r.title)}</option>`).join('');
+function recipeTitle(id) {
+  if (!id) return '';
+  return recipes.find(r => r.id === id)?.title || '';
+}
+
+function renderAutocomplete(slotKey, field, currentId, placeholder) {
+  const uid = slotKey + '_' + field;
+  const val = recipeTitle(currentId);
+  return `<div class="ac-wrap">
+    <input class="ac-input" id="ac-${uid}" type="text" placeholder="${placeholder}" value="${escHtml(val)}"
+      autocomplete="off"
+      oninput="acSearch('${uid}','${slotKey}','${field}',this.value)"
+      onfocus="acSearch('${uid}','${slotKey}','${field}',this.value)"
+      onblur="setTimeout(()=>acClose('${uid}'),150)">
+    ${currentId ? `<button class="ac-clear" onclick="acClear('${slotKey}','${field}','${uid}')" tabindex="-1">×</button>` : ''}
+    <div class="ac-dropdown" id="acd-${uid}" style="display:none"></div>
+  </div>`;
+}
+
+function acSearch(uid, slotKey, field, query) {
+  const dd = document.getElementById('acd-' + uid);
+  if (!dd) return;
+  const q = query.trim().toLowerCase();
+  const matches = q ? recipes.filter(r => r.title.toLowerCase().includes(q)) : recipes;
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.innerHTML = matches.map(r =>
+    `<div class="ac-item" onmousedown="acSelect('${slotKey}','${field}','${uid}',${r.id},'${escHtml(r.title).replace(/'/g,"\'")}')">
+      ${escHtml(r.title)}
+    </div>`
+  ).join('');
+  dd.style.display = 'block';
+}
+
+function acClose(uid) {
+  const dd = document.getElementById('acd-' + uid);
+  if (dd) dd.style.display = 'none';
+}
+
+async function acSelect(slotKey, field, uid, id, title) {
+  const input = document.getElementById('ac-' + uid);
+  if (input) input.value = title;
+  acClose(uid);
+  await updatePlanField(slotKey, field, id);
+}
+
+async function acClear(slotKey, field, uid) {
+  await updatePlanField(slotKey, field, null);
 }
 
 function renderMealRow(key, label, cat, note) {
   const slot = plannerPlan[key];
   const r = slot.mainId ? recipes.find(rec => rec.id === slot.mainId) : null;
-  const sideR = slot.sideId ? recipes.find(rec => rec.id === slot.sideId) : null;
 
-  // Caloric scaling info
   let scaleNote = '';
   if (r) {
     const mealKey = key === 'dinner' ? 'dinner' : 'lunch';
@@ -831,12 +880,12 @@ function renderMealRow(key, label, cat, note) {
     <div class="plan-row-body">
       <div style="flex:1">
         <div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">Main</div>
-        <select onchange="updatePlanField('${key}','mainId',this.value)">${recipeOptions(cat, slot.mainId)}</select>
+        ${renderAutocomplete(key, 'mainId', slot.mainId, 'Search recipes...')}
         ${scaleNote ? `<div style="font-size:11px;color:var(--text-faint);margin-top:4px">${scaleNote}</div>` : ''}
       </div>
       <div style="flex:1">
         <div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">Side <span style="opacity:.6">(optional)</span></div>
-        <select onchange="updatePlanField('${key}','sideId',this.value)">${recipeOptions(cat, slot.sideId)}</select>
+        ${renderAutocomplete(key, 'sideId', slot.sideId, 'Search recipes...')}
       </div>
     </div>
   </div>`;
