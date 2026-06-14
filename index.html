@@ -741,14 +741,14 @@ let plannerWeekStart = getMondayStr();
 
 function getMondayStr(offset=0) {
   const d = new Date();
-  d.setDate(d.getDate() - ((d.getDay()+6)%7) + offset*7);
+  d.setDate(d.getDate() - (d.getDay()%7) + offset*7);
   return d.toISOString().split('T')[0];
 }
 function weekLabel(str) {
   const d = new Date(str + 'T00:00:00');
   const end = new Date(d); end.setDate(end.getDate()+6);
   const fmt = dt => dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  return `Week of ${fmt(d)} \u2013 ${fmt(end)}`;
+  end.setDate(end.getDate()-1); return `Week of ${fmt(d)} \u2013 ${fmt(end)}`;
 }
 
 function normalizeSlots(arr, mealType) {
