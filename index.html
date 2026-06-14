@@ -153,13 +153,12 @@ h1 i{font-size:22px;opacity:.5}
 .plan-shop-items{list-style:none}
 .plan-shop-items li{font-size:13px;padding:5px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px}
 .plan-shop-items li:last-child{border:none}
-.plan-slot-card{background:var(--bg-muted);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
-.plan-slot-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.person-pills{display:flex;gap:4px}
-.person-btn{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:transparent;font-size:11px;font-weight:600;cursor:pointer;color:var(--text-muted);font-family:'Inter',inherit;transition:all .15s}
-.person-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.plan-slot-card select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text);font-size:13px;font-family:'Inter',inherit;outline:none}
-.plan-slot-card select:focus{border-color:#999}
+.plan-row{background:var(--bg-muted);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+.plan-row-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.plan-row-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text)}
+.plan-row-body{display:flex;gap:12px}
+.plan-row-body select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text);font-size:13px;font-family:'Inter',inherit;outline:none}
+.plan-row-body select:focus{border-color:#999}
 </style>
 </head>
 <body>
@@ -718,87 +717,128 @@ async function saveRecipe() {
 
 // ── Meal Planner ──────────────────────────────────────────
 // ── Family profiles ───────────────────────────────────────
+// ── Family profiles ───────────────────────────────────────
 const FAMILY = {
   Bret:    { lunch: 600,  dinner: 750 },
   Sadie:   { lunch: 450,  dinner: 550 },
   Griffin: { lunch: 500,  dinner: 575 },
   Taylor:  { lunch: 525,  dinner: 600 }
 };
-const FAMILY_MEMBERS = ['Bret','Sadie','Griffin','Taylor'];
-
-// Default people per meal type
-const DEFAULT_LUNCH_PEOPLE  = ['Bret','Sadie'];
-const DEFAULT_DINNER_PEOPLE = ['Bret','Sadie','Griffin','Taylor'];
-
-function emptySlot(mealType) {
-  return { mainId: null, sideId: null, people: mealType === 'lunches' ? [...DEFAULT_LUNCH_PEOPLE] : [...DEFAULT_DINNER_PEOPLE] };
-}
 
 // ── Planner state ─────────────────────────────────────────
 let showPlanner = false;
-let plannerPlan = { lunches: [0,1,2,3].map(()=>emptySlot('lunches')), dinners: [0,1,2,3].map(()=>emptySlot('dinners')) };
-let plannerWeekStart = getMondayStr();
+let plannerWeekStart = getSundayStr();
 
-function getMondayStr(offset=0) {
+function emptyPlan() {
+  return {
+    lunch:     { mainId: null, sideId: null, people: ['Bret','Sadie'], meals: 4 },
+    kidsLunch: { mainId: null, sideId: null, people: ['Griffin','Taylor'], meals: 4, enabled: false },
+    dinner:    { mainId: null, sideId: null, people: ['Bret','Sadie','Griffin','Taylor'], meals: 4 }
+  };
+}
+let plannerPlan = emptyPlan();
+
+function getSundayStr(offset=0) {
   const d = new Date();
-  d.setDate(d.getDate() - (d.getDay()%7) + offset*7);
+  d.setDate(d.getDate() - (d.getDay() % 7) + offset * 7);
   return d.toISOString().split('T')[0];
 }
+
 function weekLabel(str) {
   const d = new Date(str + 'T00:00:00');
-  const end = new Date(d); end.setDate(end.getDate()+6);
-  const fmt = dt => dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  end.setDate(end.getDate()-1); return `Week of ${fmt(d)} \u2013 ${fmt(end)}`;
+  const end = new Date(d); end.setDate(end.getDate() + 6);
+  const fmt = dt => dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `Week of ${fmt(d)} \u2013 ${fmt(end)}`;
 }
 
-function normalizeSlots(arr, mealType) {
-  // Handle old format (array of ids) and new format (array of objects)
-  return [0,1,2,3].map(i => {
-    const s = arr && arr[i];
-    if (!s) return emptySlot(mealType);
-    if (typeof s === 'number' || typeof s === 'string') return { mainId: s ? parseInt(s) : null, sideId: null, people: mealType === 'lunches' ? [...DEFAULT_LUNCH_PEOPLE] : [...DEFAULT_DINNER_PEOPLE] };
-    return { mainId: s.mainId || null, sideId: s.sideId || null, people: s.people || (mealType === 'lunches' ? [...DEFAULT_LUNCH_PEOPLE] : [...DEFAULT_DINNER_PEOPLE]) };
-  });
+function normalizePlan(data) {
+  const plan = emptyPlan();
+  if (!data) return plan;
+  // Support both old array format and new object format
+  const raw = (data.lunches && Array.isArray(data.lunches)) ? null : data.plan;
+  if (raw) {
+    ['lunch','kidsLunch','dinner'].forEach(key => {
+      if (raw[key]) Object.assign(plan[key], raw[key]);
+    });
+  }
+  return plan;
 }
 
 async function openPlanner() {
   showPlanner = !showPlanner;
   if (!showPlanner) { document.getElementById('planner-area').innerHTML = ''; return; }
   const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
-  if (data) {
-    plannerPlan.lunches = normalizeSlots(data.lunches, 'lunches');
-    plannerPlan.dinners = normalizeSlots(data.dinners, 'dinners');
-  } else {
-    plannerPlan = { lunches: [0,1,2,3].map(()=>emptySlot('lunches')), dinners: [0,1,2,3].map(()=>emptySlot('dinners')) };
-  }
+  plannerPlan = normalizePlan(data);
   renderPlanner();
 }
 
-function renderSlot(mealType, i) {
-  const slot = plannerPlan[mealType][i];
-  const catFilter = mealType === 'lunches' ? 'lunch' : 'dinner';
-  const allRecipes = recipes.filter(r => r.category === catFilter);
-  const allOptions = (val) => `<option value="">-- none --</option>` +
-    allRecipes.map(r => `<option value="${r.id}" ${val==r.id?'selected':''}>${escHtml(r.title)}</option>`).join('');
-  const label = mealType === 'lunches' ? `Lunch ${i+1}` : `Dinner ${i+1}`;
+async function shiftPlannerWeek(dir) {
+  if (dir === 0) { plannerWeekStart = getSundayStr(0); }
+  else {
+    const d = new Date(plannerWeekStart + 'T00:00:00');
+    d.setDate(d.getDate() + dir * 7);
+    plannerWeekStart = d.toISOString().split('T')[0];
+  }
+  plannerPlan = emptyPlan();
+  const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
+  plannerPlan = normalizePlan(data);
+  renderPlanner();
+}
 
-  const peopleBtns = FAMILY_MEMBERS.map(name => {
-    const active = slot.people.includes(name);
-    return `<button class="person-btn${active?' active':''}" onclick="toggleSlotPerson('${mealType}',${i},'${name}')" title="${name}">${name[0]}</button>`;
-  }).join('');
+async function savePlan() {
+  await db.from('meal_plans').upsert({
+    week_start: plannerWeekStart,
+    lunches: [],   // kept for schema compat
+    dinners: [],
+    plan: plannerPlan,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'week_start' });
+}
 
-  return `<div class="plan-slot-card">
-    <div class="plan-slot-header">
-      <span class="plan-slot-label">${label}</span>
-      <div class="person-pills">${peopleBtns}</div>
+function recipeOptions(category, selectedId) {
+  const list = recipes.filter(r => r.category === category);
+  return `<option value="">-- none --</option>` +
+    list.map(r => `<option value="${r.id}" ${selectedId == r.id ? 'selected' : ''}>${escHtml(r.title)}</option>`).join('');
+}
+
+function renderMealRow(key, label, cat, note) {
+  const slot = plannerPlan[key];
+  const r = slot.mainId ? recipes.find(rec => rec.id === slot.mainId) : null;
+  const sideR = slot.sideId ? recipes.find(rec => rec.id === slot.sideId) : null;
+
+  // Caloric scaling info
+  let scaleNote = '';
+  if (r) {
+    const mealKey = key === 'dinner' ? 'dinner' : 'lunch';
+    const totalCal = slot.people.reduce((s, p) => s + (FAMILY[p]?.[mealKey] || 550), 0) * slot.meals;
+    if (r.nutrition && r.nutrition.calories) {
+      const servings = (totalCal * (slot.sideId ? 0.65 : 1)) / r.nutrition.calories;
+      scaleNote = `${servings.toFixed(1)} servings`;
+    } else {
+      const servings = slot.people.length * slot.meals;
+      scaleNote = `${servings} servings (no cal data)`;
+    }
+  }
+
+  return `<div class="plan-row">
+    <div class="plan-row-header">
+      <span class="plan-row-label">${label}${note ? `<span class="planner-section-note">${note}</span>` : ''}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;color:var(--text-faint)">${slot.meals}× meals</span>
+        ${key === 'kidsLunch' ? `<button class="btn" style="font-size:11px;padding:3px 10px;color:#c0392b;border-color:#e8c0bb" onclick="disableKidsLunch()">Remove</button>` : ''}
+      </div>
     </div>
-    <select onchange="updateSlotField('${mealType}',${i},'mainId',this.value)">${allOptions(slot.mainId)}</select>
-    ${slot.sideId !== undefined ? `
-    <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-      <span style="font-size:11px;color:var(--text-faint);min-width:28px">+ side</span>
-      <select style="flex:1" onchange="updateSlotField('${mealType}',${i},'sideId',this.value)">${allOptions(slot.sideId)}</select>
-    </div>` : `
-    <button class="btn" style="margin-top:6px;font-size:11px;padding:3px 10px" onclick="addSideToSlot('${mealType}',${i})"><i class="ti ti-plus"></i> Add side</button>`}
+    <div class="plan-row-body">
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">Main</div>
+        <select onchange="updatePlanField('${key}','mainId',this.value)">${recipeOptions(cat, slot.mainId)}</select>
+        ${scaleNote ? `<div style="font-size:11px;color:var(--text-faint);margin-top:4px">${scaleNote}</div>` : ''}
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">Side <span style="opacity:.6">(optional)</span></div>
+        <select onchange="updatePlanField('${key}','sideId',this.value)">${recipeOptions(cat, slot.sideId)}</select>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -818,15 +858,12 @@ function renderPlanner() {
         </div>
       </div>
 
-      <div class="planner-section">
-        <div class="planner-section-label">Lunches <span class="planner-section-note">4 meals</span></div>
-        <div class="plan-slots">${[0,1,2,3].map(i => renderSlot('lunches',i)).join('')}</div>
-      </div>
-
-      <div class="planner-section">
-        <div class="planner-section-label">Dinners <span class="planner-section-note">4 meals</span></div>
-        <div class="plan-slots">${[0,1,2,3].map(i => renderSlot('dinners',i)).join('')}</div>
-      </div>
+      ${renderMealRow('lunch', 'Lunch', 'lunch', 'Bret &amp; Sadie')}
+      ${plannerPlan.kidsLunch.enabled ? renderMealRow('kidsLunch', 'Kids Lunch', 'lunch', 'Griffin &amp; Taylor') : `
+        <div style="margin-bottom:1rem">
+          <button class="btn" style="font-size:12px" onclick="enableKidsLunch()"><i class="ti ti-plus"></i> Add kids lunch</button>
+        </div>`}
+      ${renderMealRow('dinner', 'Dinner', 'dinner', 'Whole family')}
 
       <div class="planner-actions">
         <button class="btn primary" onclick="buildWeeklyShopList()"><i class="ti ti-shopping-cart"></i> Build shopping list</button>
@@ -836,90 +873,57 @@ function renderPlanner() {
     </div>`;
 }
 
-async function savePlan() {
-  await db.from('meal_plans').upsert({
-    week_start: plannerWeekStart,
-    lunches: plannerPlan.lunches,
-    dinners: plannerPlan.dinners,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'week_start' });
-}
-
-async function updateSlotField(mealType, idx, field, val) {
-  plannerPlan[mealType][idx][field] = val ? parseInt(val) : null;
+async function updatePlanField(key, field, val) {
+  plannerPlan[key][field] = val ? parseInt(val) : null;
   await savePlan();
   renderPlanner();
 }
 
-async function toggleSlotPerson(mealType, idx, name) {
-  const slot = plannerPlan[mealType][idx];
-  const i = slot.people.indexOf(name);
-  if (i >= 0) { if (slot.people.length > 1) slot.people.splice(i,1); }
-  else slot.people.push(name);
+function enableKidsLunch() {
+  plannerPlan.kidsLunch.enabled = true;
+  renderPlanner();
+}
+
+async function disableKidsLunch() {
+  plannerPlan.kidsLunch = emptyPlan().kidsLunch;
+  plannerPlan.kidsLunch.enabled = false;
   await savePlan();
   renderPlanner();
 }
 
-function addSideToSlot(mealType, idx) {
-  plannerPlan[mealType][idx].sideId = null;
-  renderPlanner();
-}
-
-async function shiftPlannerWeek(dir) {
-  if (dir === 0) { plannerWeekStart = getMondayStr(0); }
-  else {
-    const d = new Date(plannerWeekStart + 'T00:00:00');
-    d.setDate(d.getDate() + dir*7);
-    plannerWeekStart = d.toISOString().split('T')[0];
-  }
-  plannerPlan = { lunches: [0,1,2,3].map(()=>emptySlot('lunches')), dinners: [0,1,2,3].map(()=>emptySlot('dinners')) };
-  const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
-  if (data) {
-    plannerPlan.lunches = normalizeSlots(data.lunches, 'lunches');
-    plannerPlan.dinners = normalizeSlots(data.dinners, 'dinners');
-  }
-  renderPlanner();
-}
-
-function getSlotScale(slot, mealType) {
-  // For each slot: calculate ingredient scale based on people + caloric targets
-  // If recipe has nutrition.calories, use caloric targeting; else use headcount
-  const results = {};
-  ['mainId','sideId'].forEach(field => {
-    const id = slot[field];
+function getScaleForSlot(slot, mealKey) {
+  // Returns { recipeId -> scale } for main and side
+  const result = {};
+  const hasSide = slot.mainId && slot.sideId;
+  [[slot.mainId, hasSide ? 0.65 : 1.0], [slot.sideId, 0.35]].forEach(([id, fraction]) => {
     if (!id) return;
     const r = recipes.find(rec => rec.id === id);
     if (!r) return;
-    const mealKey = mealType === 'lunches' ? 'lunch' : 'dinner';
-    const hasSide = slot.mainId && slot.sideId;
-    const mainFraction = hasSide ? 0.65 : 1.0;
-    const sideFraction = 0.35;
-    const fraction = field === 'mainId' ? mainFraction : sideFraction;
-
+    let scale;
     if (r.nutrition && r.nutrition.calories) {
-      const totalTargetCal = slot.people.reduce((sum, name) => sum + (FAMILY[name]?.[mealKey] || 550), 0) * fraction;
-      const calPerServing = r.nutrition.calories;
-      const servingsNeeded = totalTargetCal / calPerServing;
-      results[id] = (results[id] || 0) + servingsNeeded / r.baseServings;
+      const totalCal = slot.people.reduce((s, p) => s + (FAMILY[p]?.[mealKey] || 550), 0) * slot.meals * fraction;
+      scale = totalCal / r.nutrition.calories / r.baseServings;
     } else {
-      results[id] = (results[id] || 0) + (slot.people.length / r.baseServings) * fraction;
+      scale = (slot.people.length * slot.meals * fraction) / r.baseServings;
     }
+    result[id] = (result[id] || 0) + scale;
   });
-  return results;
+  return result;
 }
 
 function buildWeeklyShopList() {
-  const hasAny = [...plannerPlan.lunches,...plannerPlan.dinners].some(s => s.mainId);
-  if (!hasAny) { alert('Add some meals to the plan first.'); return; }
+  const slots = [
+    { slot: plannerPlan.lunch, mealKey: 'lunch' },
+    ...(plannerPlan.kidsLunch.enabled ? [{ slot: plannerPlan.kidsLunch, mealKey: 'lunch' }] : []),
+    { slot: plannerPlan.dinner, mealKey: 'dinner' }
+  ];
+  if (!slots.some(s => s.slot.mainId)) { alert('Add some meals to the plan first.'); return; }
 
-  // Accumulate scales per recipe across all slots
-  const scales = {}; // recipeId -> total scale multiplier
-  ['lunches','dinners'].forEach(mealType => {
-    plannerPlan[mealType].forEach(slot => {
-      const slotScales = getSlotScale(slot, mealType);
-      Object.entries(slotScales).forEach(([id, scale]) => {
-        scales[id] = (scales[id] || 0) + scale;
-      });
+  // Accumulate scales
+  const scales = {};
+  slots.forEach(({ slot, mealKey }) => {
+    Object.entries(getScaleForSlot(slot, mealKey)).forEach(([id, scale]) => {
+      scales[id] = (scales[id] || 0) + scale;
     });
   });
 
@@ -929,11 +933,11 @@ function buildWeeklyShopList() {
     const r = recipes.find(rec => rec.id === parseInt(id));
     if (!r) return;
     (r.ingredients || []).forEach(ing => {
-      const baseName = ing.name.replace(/\s*\([^)]*\)\s*/g,'').trim().toLowerCase();
-      if (!baseName) return;
-      if (!combined[baseName]) combined[baseName] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g,'').trim(), entries: [] };
-      if (ing.qty !== null) combined[baseName].entries.push({ qty: ing.qty * scale, unit: ing.unit });
-      else combined[baseName].entries.push({ qty: null, unit: ing.unit });
+      const key = ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim().toLowerCase();
+      if (!key) return;
+      if (!combined[key]) combined[key] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim(), entries: [] };
+      if (ing.qty !== null) combined[key].entries.push({ qty: ing.qty * scale, unit: ing.unit });
+      else combined[key].entries.push({ qty: null, unit: ing.unit });
     });
   });
 
@@ -948,33 +952,30 @@ function buildWeeklyShopList() {
       display = e.qty !== null ? formatQty(e.qty, e.unit, 1, false) : (e.unit || 'to taste');
     } else {
       const byUnit = {};
-      item.entries.forEach(e => { if (e.qty === null) return; const u = e.unit||''; byUnit[u]=(byUnit[u]||0)+e.qty; });
-      display = Object.entries(byUnit).map(([u,q]) => formatQty(q, u||null, 1, false)).join(' + ') || 'to taste';
+      item.entries.forEach(e => { if (e.qty == null) return; const u = e.unit || ''; byUnit[u] = (byUnit[u] || 0) + e.qty; });
+      display = Object.entries(byUnit).map(([u, q]) => formatQty(q, u || null, 1, false)).join(' + ') || 'to taste';
     }
     sections[sec].push({ name: item.name, display });
   });
 
-  // Build share text
-  const fmtSlot = (slot, mealType) => {
-    const main = slot.mainId ? recipes.find(r=>r.id===slot.mainId)?.title : null;
-    const side = slot.sideId ? recipes.find(r=>r.id===slot.sideId)?.title : null;
-    const who = slot.people.join(', ');
-    if (!main) return null;
-    return `${main}${side?' + '+side:''} (${who})`;
-  };
-  const lunchLines = plannerPlan.lunches.map(s=>fmtSlot(s,'lunches')).filter(Boolean);
-  const dinnerLines = plannerPlan.dinners.map(s=>fmtSlot(s,'dinners')).filter(Boolean);
+  // Share text
   let shareText = `WEST FAMILY MEAL PLAN\n${weekLabel(plannerWeekStart)}\n`;
-  if (lunchLines.length) shareText += `\nLUNCHES\n` + lunchLines.map(l=>`\u2022 ${l}`).join('\n');
-  if (dinnerLines.length) shareText += `\nDINNERS\n` + dinnerLines.map(l=>`\u2022 ${l}`).join('\n');
-  shareText += `\n\nSHOPPING LIST\n`;
+  slots.forEach(({ slot, mealKey }) => {
+    if (!slot.mainId) return;
+    const main = recipes.find(r => r.id === slot.mainId)?.title || '';
+    const side = slot.sideId ? recipes.find(r => r.id === slot.sideId)?.title : null;
+    const who = slot.people.join(', ');
+    const label = mealKey === 'dinner' ? 'DINNER' : (slot.people.includes('Griffin') ? 'KIDS LUNCH' : 'LUNCH');
+    shareText += `\n${label} (${who}, ${slot.meals}\u00d7)\n\u2022 ${main}${side ? ' + ' + side : ''}\n`;
+  });
+  shareText += '\nSHOPPING LIST\n';
   STORE_SECTIONS.forEach(sec => {
     const items = sections[sec.label];
     if (!items?.length) return;
-    shareText += `\n${sec.label.toUpperCase()}\n` + items.map(i=>`\u2022 ${i.name}${i.display?' \u2014 '+i.display:''}`).join('\n') + '\n';
+    shareText += `\n${sec.label.toUpperCase()}\n` + items.map(i => `\u2022 ${i.name}${i.display ? ' \u2014 ' + i.display : ''}`).join('\n') + '\n';
   });
 
-  // Render in UI
+  // Render
   let listHtml = '';
   STORE_SECTIONS.forEach(sec => {
     const items = sections[sec.label];
@@ -984,7 +985,7 @@ function buildWeeklyShopList() {
     listHtml += '</ul>';
   });
 
-  const shareTextEsc = JSON.stringify(shareText).replace(/</g,'\u003c');
+  const shareTextEsc = JSON.stringify(shareText).replace(/</g, '\u003c');
   document.getElementById('planner-shop').innerHTML = `
     <div class="plan-shop-list">
       <div class="plan-shop-title">
