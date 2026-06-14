@@ -296,8 +296,22 @@ const SAMPLE = [
   }
 ];
 
+const RV_VERSION = 3; // bump this whenever SAMPLE recipes are added or changed
+
 let recipes = [];
-try { recipes = JSON.parse(localStorage.getItem('rv_recipes') || 'null') || SAMPLE; } catch(e) { recipes = SAMPLE; }
+try {
+  const stored = JSON.parse(localStorage.getItem('rv_recipes') || 'null');
+  const storedVersion = parseInt(localStorage.getItem('rv_version') || '0');
+  if (!stored || storedVersion < RV_VERSION) {
+    // Merge: keep any user-added recipes (id > 1000), replace SAMPLE ones by id
+    const userAdded = stored ? stored.filter(r => r.id > 1000000000) : [];
+    recipes = [...SAMPLE, ...userAdded];
+    localStorage.setItem('rv_version', RV_VERSION);
+    localStorage.setItem('rv_recipes', JSON.stringify(recipes));
+  } else {
+    recipes = stored;
+  }
+} catch(e) { recipes = SAMPLE; }
 let activeCategory = 'all';
 let activeTags = new Set();
 let showAdd = false;
