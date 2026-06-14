@@ -153,6 +153,13 @@ h1 i{font-size:22px;opacity:.5}
 .plan-shop-items{list-style:none}
 .plan-shop-items li{font-size:13px;padding:5px 0;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;gap:8px}
 .plan-shop-items li:last-child{border:none}
+.plan-slot-card{background:var(--bg-muted);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.plan-slot-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.person-pills{display:flex;gap:4px}
+.person-btn{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:transparent;font-size:11px;font-weight:600;cursor:pointer;color:var(--text-muted);font-family:'Inter',inherit;transition:all .15s}
+.person-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.plan-slot-card select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text);font-size:13px;font-family:'Inter',inherit;outline:none}
+.plan-slot-card select:focus{border-color:#999}
 </style>
 </head>
 <body>
@@ -710,8 +717,26 @@ async function saveRecipe() {
 }
 
 // ── Meal Planner ──────────────────────────────────────────
+// ── Family profiles ───────────────────────────────────────
+const FAMILY = {
+  Bret:    { lunch: 600,  dinner: 750 },
+  Sadie:   { lunch: 450,  dinner: 550 },
+  Griffin: { lunch: 500,  dinner: 575 },
+  Taylor:  { lunch: 525,  dinner: 600 }
+};
+const FAMILY_MEMBERS = ['Bret','Sadie','Griffin','Taylor'];
+
+// Default people per meal type
+const DEFAULT_LUNCH_PEOPLE  = ['Bret','Sadie'];
+const DEFAULT_DINNER_PEOPLE = ['Bret','Sadie','Griffin','Taylor'];
+
+function emptySlot(mealType) {
+  return { mainId: null, sideId: null, people: mealType === 'lunches' ? [...DEFAULT_LUNCH_PEOPLE] : [...DEFAULT_DINNER_PEOPLE] };
+}
+
+// ── Planner state ─────────────────────────────────────────
 let showPlanner = false;
-let plannerPlan = { lunches: [null,null,null,null], dinners: [null,null,null,null] };
+let plannerPlan = { lunches: [0,1,2,3].map(()=>emptySlot('lunches')), dinners: [0,1,2,3].map(()=>emptySlot('dinners')) };
 let plannerWeekStart = getMondayStr();
 
 function getMondayStr(offset=0) {
@@ -719,34 +744,66 @@ function getMondayStr(offset=0) {
   d.setDate(d.getDate() - ((d.getDay()+6)%7) + offset*7);
   return d.toISOString().split('T')[0];
 }
-
 function weekLabel(str) {
   const d = new Date(str + 'T00:00:00');
   const end = new Date(d); end.setDate(end.getDate()+6);
   const fmt = dt => dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  return `Week of ${fmt(d)} — ${fmt(end)}`;
+  return `Week of ${fmt(d)} \u2013 ${fmt(end)}`;
+}
+
+function normalizeSlots(arr, mealType) {
+  // Handle old format (array of ids) and new format (array of objects)
+  return [0,1,2,3].map(i => {
+    const s = arr && arr[i];
+    if (!s) return emptySlot(mealType);
+    if (typeof s === 'number' || typeof s === 'string') return { mainId: s ? parseInt(s) : null, sideId: null, people: mealType === 'lunches' ? [...DEFAULT_LUNCH_PEOPLE] : [...DEFAULT_DINNER_PEOPLE] };
+    return { mainId: s.mainId || null, sideId: s.sideId || null, people: s.people || (mealType === 'lunches' ? [...DEFAULT_LUNCH_PEOPLE] : [...DEFAULT_DINNER_PEOPLE]) };
+  });
 }
 
 async function openPlanner() {
   showPlanner = !showPlanner;
   if (!showPlanner) { document.getElementById('planner-area').innerHTML = ''; return; }
-  // Load current week plan from Supabase
   const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
   if (data) {
-    plannerPlan.lunches = data.lunches || [null,null,null,null];
-    plannerPlan.dinners = data.dinners || [null,null,null,null];
+    plannerPlan.lunches = normalizeSlots(data.lunches, 'lunches');
+    plannerPlan.dinners = normalizeSlots(data.dinners, 'dinners');
+  } else {
+    plannerPlan = { lunches: [0,1,2,3].map(()=>emptySlot('lunches')), dinners: [0,1,2,3].map(()=>emptySlot('dinners')) };
   }
   renderPlanner();
 }
 
+function renderSlot(mealType, i) {
+  const slot = plannerPlan[mealType][i];
+  const catFilter = mealType === 'lunches' ? 'lunch' : 'dinner';
+  const allRecipes = recipes.filter(r => r.category === catFilter);
+  const allOptions = (val) => `<option value="">-- none --</option>` +
+    allRecipes.map(r => `<option value="${r.id}" ${val==r.id?'selected':''}>${escHtml(r.title)}</option>`).join('');
+  const label = mealType === 'lunches' ? `Lunch ${i+1}` : `Dinner ${i+1}`;
+
+  const peopleBtns = FAMILY_MEMBERS.map(name => {
+    const active = slot.people.includes(name);
+    return `<button class="person-btn${active?' active':''}" onclick="toggleSlotPerson('${mealType}',${i},'${name}')" title="${name}">${name[0]}</button>`;
+  }).join('');
+
+  return `<div class="plan-slot-card">
+    <div class="plan-slot-header">
+      <span class="plan-slot-label">${label}</span>
+      <div class="person-pills">${peopleBtns}</div>
+    </div>
+    <select onchange="updateSlotField('${mealType}',${i},'mainId',this.value)">${allOptions(slot.mainId)}</select>
+    ${slot.sideId !== undefined ? `
+    <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+      <span style="font-size:11px;color:var(--text-faint);min-width:28px">+ side</span>
+      <select style="flex:1" onchange="updateSlotField('${mealType}',${i},'sideId',this.value)">${allOptions(slot.sideId)}</select>
+    </div>` : `
+    <button class="btn" style="margin-top:6px;font-size:11px;padding:3px 10px" onclick="addSideToSlot('${mealType}',${i})"><i class="ti ti-plus"></i> Add side</button>`}
+  </div>`;
+}
+
 function renderPlanner() {
   const el = document.getElementById('planner-area');
-  const lunchRecipes = recipes.filter(r => r.category === 'lunch');
-  const dinnerRecipes = recipes.filter(r => r.category === 'dinner');
-  const allOptions = (list, val) =>
-    `<option value="">— none —</option>` +
-    list.map(r => `<option value="${r.id}" ${val==r.id?'selected':''}>${escHtml(r.title)}</option>`).join('');
-
   el.innerHTML = `
     <div class="planner">
       <div class="planner-header">
@@ -762,29 +819,13 @@ function renderPlanner() {
       </div>
 
       <div class="planner-section">
-        <div class="planner-section-label">Lunches <span class="planner-section-note">Bret &amp; Sadie · 4 meals</span></div>
-        <div class="plan-slots">
-          ${[0,1,2,3].map(i => `
-            <div class="plan-slot">
-              <span class="plan-slot-label">Lunch ${i+1}</span>
-              <select onchange="updatePlanSlot('lunches',${i},this.value)">
-                ${allOptions(lunchRecipes, plannerPlan.lunches[i])}
-              </select>
-            </div>`).join('')}
-        </div>
+        <div class="planner-section-label">Lunches <span class="planner-section-note">4 meals</span></div>
+        <div class="plan-slots">${[0,1,2,3].map(i => renderSlot('lunches',i)).join('')}</div>
       </div>
 
       <div class="planner-section">
-        <div class="planner-section-label">Dinners <span class="planner-section-note">Whole family · 4 meals</span></div>
-        <div class="plan-slots">
-          ${[0,1,2,3].map(i => `
-            <div class="plan-slot">
-              <span class="plan-slot-label">Dinner ${i+1}</span>
-              <select onchange="updatePlanSlot('dinners',${i},this.value)">
-                ${allOptions(dinnerRecipes, plannerPlan.dinners[i])}
-              </select>
-            </div>`).join('')}
-        </div>
+        <div class="planner-section-label">Dinners <span class="planner-section-note">4 meals</span></div>
+        <div class="plan-slots">${[0,1,2,3].map(i => renderSlot('dinners',i)).join('')}</div>
       </div>
 
       <div class="planner-actions">
@@ -795,25 +836,7 @@ function renderPlanner() {
     </div>`;
 }
 
-async function shiftPlannerWeek(dir) {
-  if (dir === 0) {
-    plannerWeekStart = getMondayStr(0);
-  } else {
-    const d = new Date(plannerWeekStart + 'T00:00:00');
-    d.setDate(d.getDate() + dir*7);
-    plannerWeekStart = d.toISOString().split('T')[0];
-  }
-  plannerPlan = { lunches: [null,null,null,null], dinners: [null,null,null,null] };
-  const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
-  if (data) {
-    plannerPlan.lunches = data.lunches || [null,null,null,null];
-    plannerPlan.dinners = data.dinners || [null,null,null,null];
-  }
-  renderPlanner();
-}
-
-async function updatePlanSlot(type, idx, val) {
-  plannerPlan[type][idx] = val ? parseInt(val) : null;
+async function savePlan() {
   await db.from('meal_plans').upsert({
     week_start: plannerWeekStart,
     lunches: plannerPlan.lunches,
@@ -822,30 +845,89 @@ async function updatePlanSlot(type, idx, val) {
   }, { onConflict: 'week_start' });
 }
 
+async function updateSlotField(mealType, idx, field, val) {
+  plannerPlan[mealType][idx][field] = val ? parseInt(val) : null;
+  await savePlan();
+  renderPlanner();
+}
+
+async function toggleSlotPerson(mealType, idx, name) {
+  const slot = plannerPlan[mealType][idx];
+  const i = slot.people.indexOf(name);
+  if (i >= 0) { if (slot.people.length > 1) slot.people.splice(i,1); }
+  else slot.people.push(name);
+  await savePlan();
+  renderPlanner();
+}
+
+function addSideToSlot(mealType, idx) {
+  plannerPlan[mealType][idx].sideId = null;
+  renderPlanner();
+}
+
+async function shiftPlannerWeek(dir) {
+  if (dir === 0) { plannerWeekStart = getMondayStr(0); }
+  else {
+    const d = new Date(plannerWeekStart + 'T00:00:00');
+    d.setDate(d.getDate() + dir*7);
+    plannerWeekStart = d.toISOString().split('T')[0];
+  }
+  plannerPlan = { lunches: [0,1,2,3].map(()=>emptySlot('lunches')), dinners: [0,1,2,3].map(()=>emptySlot('dinners')) };
+  const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
+  if (data) {
+    plannerPlan.lunches = normalizeSlots(data.lunches, 'lunches');
+    plannerPlan.dinners = normalizeSlots(data.dinners, 'dinners');
+  }
+  renderPlanner();
+}
+
+function getSlotScale(slot, mealType) {
+  // For each slot: calculate ingredient scale based on people + caloric targets
+  // If recipe has nutrition.calories, use caloric targeting; else use headcount
+  const results = {};
+  ['mainId','sideId'].forEach(field => {
+    const id = slot[field];
+    if (!id) return;
+    const r = recipes.find(rec => rec.id === id);
+    if (!r) return;
+    const mealKey = mealType === 'lunches' ? 'lunch' : 'dinner';
+    const hasSide = slot.mainId && slot.sideId;
+    const mainFraction = hasSide ? 0.65 : 1.0;
+    const sideFraction = 0.35;
+    const fraction = field === 'mainId' ? mainFraction : sideFraction;
+
+    if (r.nutrition && r.nutrition.calories) {
+      const totalTargetCal = slot.people.reduce((sum, name) => sum + (FAMILY[name]?.[mealKey] || 550), 0) * fraction;
+      const calPerServing = r.nutrition.calories;
+      const servingsNeeded = totalTargetCal / calPerServing;
+      results[id] = (results[id] || 0) + servingsNeeded / r.baseServings;
+    } else {
+      results[id] = (results[id] || 0) + (slot.people.length / r.baseServings) * fraction;
+    }
+  });
+  return results;
+}
+
 function buildWeeklyShopList() {
-  const hasAny = [...plannerPlan.lunches, ...plannerPlan.dinners].some(Boolean);
+  const hasAny = [...plannerPlan.lunches,...plannerPlan.dinners].some(s => s.mainId);
   if (!hasAny) { alert('Add some meals to the plan first.'); return; }
 
-  // Count occurrences per recipe per meal type for scaling
-  // Lunch: 2 people, Dinner: 4 people
-  const recipeCounts = {}; // id -> { people, occurrences }
-  plannerPlan.lunches.filter(Boolean).forEach(id => {
-    if (!recipeCounts[id]) recipeCounts[id] = { people: 2, count: 0 };
-    recipeCounts[id].count++;
-  });
-  plannerPlan.dinners.filter(Boolean).forEach(id => {
-    if (!recipeCounts[id]) recipeCounts[id] = { people: 4, count: 0 };
-    // If same recipe used for both lunch and dinner, keep higher people count
-    else recipeCounts[id].people = Math.max(recipeCounts[id].people, 4);
-    recipeCounts[id].count++;
+  // Accumulate scales per recipe across all slots
+  const scales = {}; // recipeId -> total scale multiplier
+  ['lunches','dinners'].forEach(mealType => {
+    plannerPlan[mealType].forEach(slot => {
+      const slotScales = getSlotScale(slot, mealType);
+      Object.entries(slotScales).forEach(([id, scale]) => {
+        scales[id] = (scales[id] || 0) + scale;
+      });
+    });
   });
 
-  // Combine like ingredients with proper scaling
+  // Combine ingredients
   const combined = {};
-  Object.entries(recipeCounts).forEach(([id, { people, count }]) => {
+  Object.entries(scales).forEach(([id, scale]) => {
     const r = recipes.find(rec => rec.id === parseInt(id));
     if (!r) return;
-    const scale = (people * count) / r.baseServings;
     (r.ingredients || []).forEach(ing => {
       const baseName = ing.name.replace(/\s*\([^)]*\)\s*/g,'').trim().toLowerCase();
       if (!baseName) return;
@@ -855,7 +937,7 @@ function buildWeeklyShopList() {
     });
   });
 
-  // Group by store section (reuse STORE_SECTIONS)
+  // Group by store section
   const sections = {};
   Object.values(combined).forEach(item => {
     const sec = assignSection(item.name);
@@ -872,18 +954,24 @@ function buildWeeklyShopList() {
     sections[sec].push({ name: item.name, display });
   });
 
-  // Build text for sharing
-  const mealLines = [];
-  const lunchNames = plannerPlan.lunches.filter(Boolean).map(id => recipes.find(r=>r.id===id)?.title).filter(Boolean);
-  const dinnerNames = plannerPlan.dinners.filter(Boolean).map(id => recipes.find(r=>r.id===id)?.title).filter(Boolean);
-  if (lunchNames.length) mealLines.push('LUNCHES\n' + lunchNames.map(n=>'• '+n).join('\n'));
-  if (dinnerNames.length) mealLines.push('DINNERS\n' + dinnerNames.map(n=>'• '+n).join('\n'));
-
-  let shareText = `WEST FAMILY MEAL PLAN\n${weekLabel(plannerWeekStart)}\n\n${mealLines.join('\n\n')}\n\nSHOPPING LIST\n`;
+  // Build share text
+  const fmtSlot = (slot, mealType) => {
+    const main = slot.mainId ? recipes.find(r=>r.id===slot.mainId)?.title : null;
+    const side = slot.sideId ? recipes.find(r=>r.id===slot.sideId)?.title : null;
+    const who = slot.people.join(', ');
+    if (!main) return null;
+    return `${main}${side?' + '+side:''} (${who})`;
+  };
+  const lunchLines = plannerPlan.lunches.map(s=>fmtSlot(s,'lunches')).filter(Boolean);
+  const dinnerLines = plannerPlan.dinners.map(s=>fmtSlot(s,'dinners')).filter(Boolean);
+  let shareText = `WEST FAMILY MEAL PLAN\n${weekLabel(plannerWeekStart)}\n`;
+  if (lunchLines.length) shareText += `\nLUNCHES\n` + lunchLines.map(l=>`\u2022 ${l}`).join('\n');
+  if (dinnerLines.length) shareText += `\nDINNERS\n` + dinnerLines.map(l=>`\u2022 ${l}`).join('\n');
+  shareText += `\n\nSHOPPING LIST\n`;
   STORE_SECTIONS.forEach(sec => {
     const items = sections[sec.label];
     if (!items?.length) return;
-    shareText += `\n${sec.label.toUpperCase()}\n` + items.map(i => `• ${i.name}${i.display ? ' — ' + i.display : ''}`).join('\n') + '\n';
+    shareText += `\n${sec.label.toUpperCase()}\n` + items.map(i=>`\u2022 ${i.name}${i.display?' \u2014 '+i.display:''}`).join('\n') + '\n';
   });
 
   // Render in UI
@@ -896,11 +984,12 @@ function buildWeeklyShopList() {
     listHtml += '</ul>';
   });
 
+  const shareTextEsc = JSON.stringify(shareText).replace(/</g,'\u003c');
   document.getElementById('planner-shop').innerHTML = `
     <div class="plan-shop-list">
       <div class="plan-shop-title">
         <span>Shopping List</span>
-        <button class="btn" onclick="shareToNotes(${JSON.stringify(shareText).replace(/</g,'\u003c')})"><i class="ti ti-share"></i> Share to Notes</button>
+        <button class="btn" onclick="shareToNotes(${shareTextEsc})"><i class="ti ti-share"></i> Share to Notes</button>
       </div>
       ${listHtml}
     </div>`;
@@ -908,12 +997,10 @@ function buildWeeklyShopList() {
 
 async function shareToNotes(text) {
   if (navigator.share) {
-    try {
-      await navigator.share({ title: 'West Family Meal Plan', text });
-    } catch(e) { /* user cancelled */ }
+    try { await navigator.share({ title: 'West Family Meal Plan', text }); } catch(e) {}
   } else {
     await navigator.clipboard.writeText(text);
-    alert('Copied to clipboard — paste into Notes.');
+    alert('Copied to clipboard \u2014 paste into Notes.');
   }
 }
 
