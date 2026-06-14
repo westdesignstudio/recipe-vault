@@ -303,17 +303,17 @@ const SAMPLE = [
       {group:null,qty:null,unit:null,name:'salt and pepper to taste'}
     ],
     instructions: [
-      'Steam the jackfruit for 10 minutes. Once cool enough to handle, chop or shred the jackfruit. Discard seeds if desired.',
-      'In a bowl, combine the jackfruit, plant-based meat, garlic powder, onion powder, smoked paprika, and black pepper.',
-      'Line a baking sheet with parchment paper and form the mixture into steak patties (makes approximately 2 medium and 2 large). Place the baking sheet in the freezer for 1 hour.',
-      'Set up a dredging station: combine all dry batter ingredients in one bowl. In a second bowl, whisk together the wet batter ingredients until you reach a thin pancake batter consistency, adding flour or liquid as needed to adjust.',
-      'Heat a pot of neutral oil (vegetable, peanut, or canola) to 375°F.',
-      'Dredge each frozen patty in the dry batter, coating thoroughly and shaking off the excess. Dip into the wet batter, coating well and shaking off the excess. Return to the dry batter one final time for a third coat.',
-      'Carefully lower the patties into the hot oil and fry until golden brown, about 5 minutes. Remove and let cool on a wire rack.',
-      'To keep the fried steaks warm while making the gravy, place the wire rack on a baking sheet and hold in an oven set to 250°F.',
-      'Make the gravy: melt the vegan butter in a pan over medium heat. Add the flour 1 tablespoon at a time, whisking between each addition. Once all flour is incorporated, cook for 1 minute to remove the raw flour taste.',
-      'Slowly pour in the unsweetened plant milk while whisking constantly to prevent lumps. Simmer for about 6 minutes or until the gravy reaches your desired consistency. Season with salt and black pepper to taste.',
-      'To serve as a sandwich, toast burger buns and layer with dill pickles, a fried steak patty, a generous ladle of gravy, and chopped chives. Serve immediately.'
+      {group:'Country Fried Steak', text:'Steam the jackfruit for 10 minutes. Once cool enough to handle, chop or shred the jackfruit. Discard seeds if desired.'},
+      {group:null, text:'In a bowl, combine the jackfruit, plant-based meat, garlic powder, onion powder, smoked paprika, and black pepper.'},
+      {group:null, text:'Line a baking sheet with parchment paper and form the mixture into steak patties (makes approximately 2 medium and 2 large). Place the baking sheet in the freezer for 1 hour.'},
+      {group:'Dredging Station', text:'Set up a dredging station: combine all dry batter ingredients in one bowl. In a second bowl, whisk together the wet batter ingredients until you reach a thin pancake batter consistency, adding flour or liquid as needed to adjust.'},
+      {group:'Frying', text:'Heat a pot of neutral oil (vegetable, peanut, or canola) to 375°F.'},
+      {group:null, text:'Dredge each frozen patty in the dry batter, coating thoroughly and shaking off the excess. Dip into the wet batter, coating well and shaking off the excess. Return to the dry batter one final time for a third coat.'},
+      {group:null, text:'Carefully lower the patties into the hot oil and fry until golden brown, about 5 minutes. Remove and let cool on a wire rack.'},
+      {group:null, text:'To keep the fried steaks warm while making the gravy, place the wire rack on a baking sheet and hold in an oven set to 250°F.'},
+      {group:'Country Gravy', text:'Melt the vegan butter in a pan over medium heat. Add the flour 1 tablespoon at a time, whisking between each addition. Once all flour is incorporated, cook for 1 minute to remove the raw flour taste.'},
+      {group:null, text:'Slowly pour in the unsweetened plant milk while whisking constantly to prevent lumps. Simmer for about 6 minutes or until the gravy reaches your desired consistency. Season with salt and black pepper to taste.'},
+      {group:'To Serve', text:'Toast burger buns and layer with dill pickles, a fried steak patty, a generous ladle of gravy, and chopped chives. Serve immediately.'}
     ]
   },
   {
@@ -334,7 +334,7 @@ const SAMPLE = [
   }
 ];
 
-const RV_VERSION = 3; // bump this whenever SAMPLE recipes are added or changed
+const RV_VERSION = 4; // bump this whenever SAMPLE recipes are added or changed
 
 let recipes = [];
 try {
@@ -460,7 +460,7 @@ function renderModal() {
           </ul>
           <div class="section-label">Instructions</div>
           <ol class="inst-list">
-            ${r.instructions.map((step, i) => `<li><span class="step-num">${i+1}</span><span>${escHtml(step)}</span></li>`).join('')}
+            ${renderInstructions(r.instructions)}
           </ol>
           <div class="log-section">
             <div class="section-label" style="margin-top:0">Cook Log</div>
@@ -500,6 +500,24 @@ function renderModal() {
         </div>
       </div>
     </div>`;
+}
+
+function renderInstructions(instructions) {
+  let html = '';
+  let stepNum = 0;
+  let lastGroup = null;
+  instructions.forEach(step => {
+    const text = typeof step === 'string' ? step : step.text;
+    const g = (typeof step === 'object' && step.group) ? step.group : null;
+    if (g && g !== lastGroup) {
+      html += `<li style="padding:0;border:none;display:block"><span class="ing-group-label">${escHtml(g)}</span></li>`;
+      lastGroup = g;
+      stepNum = 0;
+    }
+    stepNum++;
+    html += `<li><span class="step-num">${stepNum}</span><span>${escHtml(text)}</span></li>`;
+  });
+  return html;
 }
 
 function renderIngredients(ingredients, scale, metric) {
