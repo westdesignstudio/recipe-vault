@@ -282,7 +282,6 @@ async function save(recipe) {
 
 let recipes = [];
 let activeCategory = 'all';
-let activeTags = new Set();
 let showAdd = false;
 let openRecipe = null;
 
@@ -307,12 +306,8 @@ function renderFilters() {
   const el = document.getElementById('filters');
   const counts = {};
   CATEGORIES.forEach(c => { counts[c] = c === 'all' ? recipes.length : recipes.filter(r => r.category === c).length; });
-  const tagCounts = {};
-  TAGS.forEach(t => { tagCounts[t] = recipes.filter(r => r.tags && r.tags.includes(t)).length; });
-  const hasTags = TAGS.some(t => tagCounts[t] > 0);
   el.innerHTML =
-    `<div style="display:flex;flex-direction:column;gap:8px;width:100%">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+    `<div style="display:flex;flex-wrap:wrap;gap:8px">
         ${CATEGORIES.filter(c => c === 'all' || counts[c] > 0).map(c => `
           <button class="pill ${activeCategory === c ? 'active' : ''}" onclick="setCategory('${c}')">
             ${c === 'all' ? 'All' : cap(c)}${c !== 'all' ? ' (' + counts[c] + ')' : ''}
@@ -322,11 +317,9 @@ function renderFilters() {
 }
 
 function setCategory(c) { activeCategory = c; renderFilters(); renderGrid(); }
-function toggleTag(t) { activeTags.has(t) ? activeTags.delete(t) : activeTags.add(t); renderFilters(); renderGrid(); }
 
 function renderGrid() {
   let filtered = activeCategory === 'all' ? recipes : recipes.filter(r => r.category === activeCategory);
-  if (activeTags.size > 0) filtered = filtered.filter(r => [...activeTags].every(t => r.tags && r.tags.includes(t)));
   const el = document.getElementById('grid');
   if (!filtered.length) {
     el.innerHTML = '<div class="empty"><i class="ti ti-bowl-chopsticks" style="font-size:36px;display:block;margin-bottom:.5rem"></i>No recipes in this category yet</div>';
