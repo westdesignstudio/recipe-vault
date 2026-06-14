@@ -232,47 +232,7 @@ function formatQty(qty, unit, scale, metric) {
   return displayUnit ? `${display} ${displayUnit}` : display;
 }
 
-const DEFAULT_RECIPES = [
-  {
-    id: 1, title: 'Classic banana pancakes', url: 'https://www.allrecipes.com/recipe/20177/banana-pancakes-i/',
-    image: 'https://www.allrecipes.com/thmb/0EoFE7DDgU6FcaGBpFLmMQ5k6hU=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/2166040-banana-pancakes-Chef-John-081-3x4-1-de5e09ba1a8c497e9c3f2ccb4b7f5e98.jpg',
-    servings: 4, baseServings: 4, category: 'breakfast',
-    ingredients: [
-      {qty:1.5,unit:'cups',name:'all-purpose flour'},{qty:3.5,unit:'tsp',name:'baking powder'},
-      {qty:1,unit:'tsp',name:'salt'},{qty:1,unit:'tbsp',name:'white sugar'},
-      {qty:1.25,unit:'cups',name:'milk'},{qty:1,unit:null,name:'large egg'},
-      {qty:3,unit:'tbsp',name:'melted butter'},{qty:2,unit:null,name:'ripe bananas, mashed'}
-    ],
-    instructions: [
-      'Whisk together the flour, baking powder, salt, and sugar in a large bowl.',
-      'Make a well in the center and pour in the milk, egg, and melted butter. Mix until smooth, then fold in the mashed bananas.',
-      'Heat a lightly oiled griddle or skillet over medium-high heat. Pour the batter by ¼ cup portions onto the griddle.',
-      'Cook until bubbles appear on the surface and the edges look dry, then flip and cook until golden brown.',
-      'Serve immediately with maple syrup and fresh fruit.'
-    ]
-  },
-  {
-    id: 2, title: 'Chicken tikka masala', url: 'https://www.bonappetit.com/recipe/chicken-tikka-masala',
-    image: 'https://assets.bonappetit.com/photos/5a6c34cde72f4401a60e94e3/1:1/w_960%2Cc_limit/chicken-tikka-masala.jpg',
-    servings: 4, baseServings: 4, category: 'dinner',
-    ingredients: [
-      {qty:2,unit:'lbs',name:'boneless chicken thighs, cubed'},{qty:1,unit:'cup',name:'plain yogurt'},
-      {qty:2,unit:'tbsp',name:'lemon juice'},{qty:2,unit:'tsp',name:'cumin'},
-      {qty:2,unit:'tsp',name:'garam masala'},{qty:1,unit:'tsp',name:'turmeric'},
-      {qty:3,unit:'tbsp',name:'oil, divided (2 tbsp marinade, 1 tbsp sauce)'},
-      {qty:1,unit:null,name:'large onion, diced'},{qty:4,unit:null,name:'garlic cloves, minced'},
-      {qty:1,unit:'tbsp',name:'fresh ginger, grated'},{qty:2,unit:'cups',name:'crushed tomatoes'},
-      {qty:1,unit:'cup',name:'heavy cream'},{qty:null,unit:null,name:'salt and pepper to taste'}
-    ],
-    instructions: [
-      'Combine chicken with yogurt, lemon juice, cumin, garam masala, turmeric, and oil. Marinate at least 30 minutes, ideally overnight.',
-      'Grill or broil the marinated chicken until slightly charred. Set aside.',
-      'Sauté onion in remaining oil over medium heat until golden, about 10 minutes. Add garlic and ginger; cook 2 more minutes.',
-      'Stir in crushed tomatoes and simmer for 15 minutes until thickened.',
-      'Pour in heavy cream and add the cooked chicken. Simmer together for 10 minutes.',
-      'Season with salt and pepper. Serve over basmati rice with naan.'
-    ]
-  },
+const RECIPES = [
   {
     id: 4, title: "Chik'n Fried Steak", url: 'https://theeburgerdude.com/vegan-chicken-fried-steak/#recipe',
     image: 'https://theeburgerdude.com/wp-content/uploads/2022/09/9093e9_be25c727cd564af0a0f7dac13869e12b_mv2.webp',
@@ -316,7 +276,6 @@ const DEFAULT_RECIPES = [
       {group:null, text:'Toast burger buns and layer with dill pickles, a fried steak patty, a generous ladle of gravy, and chopped chives. Serve immediately.'}
     ]
   },
-  ,
   {
     id: 5, title: "Bret's Chili", url: '',
     image: 'https://www.allrecipes.com/thmb/tDRu8q7-u9NnwsN3lvyVdoXX3KA=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/78299-boilermaker-tailgate-chili-ddmfs-hero-3x4-1195-670ba950f0e14209aa304c1dbf2b874f.jpg',
@@ -356,29 +315,13 @@ const DEFAULT_RECIPES = [
       {group:'Finish', text:'Taste and adjust salt, pepper, and chili powder as needed. Serve hot with corn chips, or cool, refrigerate, and reheat the next day.'}
     ]
   }
-  ,
-  {
-    id: 3, title: 'No-bake chocolate energy balls', url: '',
-    image: '',
-    servings: 16, baseServings: 16, category: 'snack',
-    ingredients: [
-      {qty:1,unit:'cup',name:'rolled oats'},{qty:0.5,unit:'cup',name:'peanut butter'},
-      {qty:0.25,unit:'cup',name:'honey'},{qty:0.25,unit:'cup',name:'dark chocolate chips'},
-      {qty:2,unit:'tbsp',name:'chia seeds'},{qty:1,unit:'tsp',name:'vanilla extract'}
-    ],
-    instructions: [
-      'Stir all ingredients together in a large bowl until fully combined.',
-      'Refrigerate the mixture for 30 minutes to firm it up.',
-      'Roll into 1-inch balls using your hands, working quickly so the mixture stays cool.',
-      'Store in an airtight container in the fridge for up to one week.'
-    ]
-  }
 ];
 
-const RV_VERSION = 6; // bump when SAMPLE recipes are added or structurally changed
-const DEFAULT_IDS = new Set(DEFAULT_RECIPES.map(r => r.id));
-// Fields the user can modify — never overwrite these from SAMPLE on merge
+// Ids of recipes defined in code — used to preserve user deletions across updates
+const RECIPE_IDS = new Set(RECIPES.map(r => r.id));
+// User data fields — never overwritten when code recipes are updated
 const USER_FIELDS = ['cookedDates','ratings','comments','_scale','_metric'];
+const RV_VERSION = 7;
 
 let recipes = [];
 try {
@@ -386,38 +329,37 @@ try {
   const deletedIds = new Set(JSON.parse(localStorage.getItem('rv_deleted_ids') || '[]'));
   const storedVersion = parseInt(localStorage.getItem('rv_version') || '0');
 
+  // Purge any old placeholder recipes (ids 1, 2, 3) permanently
+  const PURGE_IDS = new Set([1, 2, 3]);
+
   if (!stored) {
-    // First ever load — seed from SAMPLE
-    recipes = DEFAULT_RECIPES.slice();
+    recipes = RECIPES.slice();
   } else if (storedVersion < RV_VERSION) {
-    // Version bump: smart merge
-    // Build a map of what the user currently has
     const storedMap = {};
     stored.forEach(r => { storedMap[r.id] = r; });
-    // Merge each SAMPLE recipe
     const merged = [];
-    DEFAULT_RECIPES.forEach(s => {
-      if (deletedIds.has(s.id)) return; // user deleted this — respect it
-      if (storedMap[s.id]) {
-        // Recipe exists — update structural fields, keep user data
-        const existing = storedMap[s.id];
-        const updated = Object.assign({}, s);
+    RECIPES.forEach(r => {
+      if (deletedIds.has(r.id)) return;
+      if (storedMap[r.id]) {
+        const existing = storedMap[r.id];
+        const updated = Object.assign({}, r);
         USER_FIELDS.forEach(f => { if (existing[f] !== undefined) updated[f] = existing[f]; });
         merged.push(updated);
       } else {
-        merged.push(s); // new SAMPLE recipe the user hasn't seen yet
+        merged.push(r);
       }
     });
-    // Append any user-created recipes (high timestamp ids)
-    stored.filter(r => !DEFAULT_IDS.has(r.id)).forEach(r => merged.push(r));
+    // Keep user-added recipes, drop purged placeholder ids
+    stored.filter(r => !RECIPE_IDS.has(r.id) && !PURGE_IDS.has(r.id)).forEach(r => merged.push(r));
     recipes = merged;
   } else {
-    recipes = stored;
+    // Still purge old placeholders even on non-version-bump loads
+    recipes = stored.filter(r => !PURGE_IDS.has(r.id));
   }
   localStorage.setItem('rv_version', RV_VERSION);
   localStorage.setItem('rv_recipes', JSON.stringify(recipes));
-} catch(e) { recipes = DEFAULT_RECIPES.slice(); }
-let activeCategory = 'all';
+} catch(e) { recipes = RECIPES.slice(); }
+let activeCategory = 'all';let activeCategory = 'all';
 let activeTags = new Set();
 let showAdd = false;
 let openRecipe = null;
@@ -745,8 +687,8 @@ function closeModal() {
 }
 function deleteRecipe(id) {
   if (!confirm('Delete this recipe?')) return;
-  // If deleting a SAMPLE recipe, remember it so merges don't restore it
-  if (DEFAULT_IDS.has(id)) {
+  // If deleting a built-in recipe, remember it so updates don't restore it
+  if (RECIPE_IDS.has(id)) {
     const deleted = new Set(JSON.parse(localStorage.getItem('rv_deleted_ids') || '[]'));
     deleted.add(id);
     localStorage.setItem('rv_deleted_ids', JSON.stringify([...deleted]));
