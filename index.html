@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>West Family Recipe Vault</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+@keyframes spin{to{transform:rotate(360deg)}}
 :root{--bg:#F8F2EC;--bg-card:#fff;--bg-muted:#f3ede6;--bg-hover:#ede7e0;--border:#e2dbd2;--border-light:#ede7e0;--text:#181818;--text-muted:#888;--text-faint:#bbb;--accent:#181818;--radius-sm:6px;--radius:10px;--radius-lg:14px}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .app{max-width:960px;margin:0 auto;padding:2.5rem 1.25rem}
@@ -232,139 +234,69 @@ function formatQty(qty, unit, scale, metric) {
   return displayUnit ? `${display} ${displayUnit}` : display;
 }
 
-const RECIPES = [
-  {
-    id: 4, title: "Chik'n Fried Steak", url: 'https://theeburgerdude.com/vegan-chicken-fried-steak/#recipe',
-    image: 'https://theeburgerdude.com/wp-content/uploads/2022/09/9093e9_be25c727cd564af0a0f7dac13869e12b_mv2.webp',
-    servings: 4, baseServings: 4, category: 'dinner', tags: ['vegan'],
-    ingredients: [
-      {group:'Country Fried Steak',qty:1,unit:'lb',name:'plant-based meat'},
-      {group:null,qty:6,unit:'oz',name:'jackfruit'},
-      {group:null,qty:0.5,unit:'tsp',name:'garlic powder'},
-      {group:null,qty:0.5,unit:'tsp',name:'onion powder'},
-      {group:null,qty:0.5,unit:'tsp',name:'smoked paprika'},
-      {group:null,qty:null,unit:null,name:'black pepper to taste'},
-      {group:'Dry Batter',qty:0.5,unit:'cup',name:'flour'},
-      {group:null,qty:0.5,unit:'cup',name:'cornstarch'},
-      {group:null,qty:1,unit:'tbsp',name:'baking powder'},
-      {group:null,qty:2,unit:'tsp',name:'garlic powder'},
-      {group:null,qty:2,unit:'tsp',name:'onion powder'},
-      {group:null,qty:2,unit:'tsp',name:'smoked paprika'},
-      {group:null,qty:1,unit:'tsp',name:'cayenne'},
-      {group:null,qty:1,unit:'tsp',name:'white pepper'},
-      {group:null,qty:1.5,unit:'tsp',name:'salt'},
-      {group:null,qty:null,unit:null,name:'black pepper to taste'},
-      {group:'Wet Batter',qty:1,unit:'cup',name:'unsweetened plant milk'},
-      {group:null,qty:1,unit:'tbsp',name:'apple cider vinegar'},
-      {group:null,qty:0.33,unit:'cup',name:'flour'},
-      {group:'Country Gravy',qty:0.25,unit:'cup',name:'vegan butter'},
-      {group:null,qty:4,unit:'tbsp',name:'flour'},
-      {group:null,qty:2,unit:'cups',name:'unsweetened plant milk'},
-      {group:null,qty:null,unit:null,name:'salt and pepper to taste'}
-    ],
-    instructions: [
-      {group:'Country Fried Steak', text:'Steam the jackfruit for 10 minutes. Once cool enough to handle, chop or shred the jackfruit. Discard seeds if desired.'},
-      {group:null, text:'In a bowl, combine the jackfruit, plant-based meat, garlic powder, onion powder, smoked paprika, and black pepper.'},
-      {group:null, text:'Line a baking sheet with parchment paper and form the mixture into steak patties (makes approximately 2 medium and 2 large). Place the baking sheet in the freezer for 1 hour.'},
-      {group:'Dredging Station', text:'Set up a dredging station: combine all dry batter ingredients in one bowl. In a second bowl, whisk together the wet batter ingredients until you reach a thin pancake batter consistency, adding flour or liquid as needed to adjust.'},
-      {group:'Frying', text:'Heat a pot of neutral oil (vegetable, peanut, or canola) to 375°F.'},
-      {group:null, text:'Dredge each frozen patty in the dry batter, coating thoroughly and shaking off the excess. Dip into the wet batter, coating well and shaking off the excess. Return to the dry batter one final time for a third coat.'},
-      {group:null, text:'Carefully lower the patties into the hot oil and fry until golden brown, about 5 minutes. Remove and let cool on a wire rack.'},
-      {group:null, text:'To keep the fried steaks warm while making the gravy, place the wire rack on a baking sheet and hold in an oven set to 250°F.'},
-      {group:'Country Gravy', text:'Melt the vegan butter in a pan over medium heat. Add the flour 1 tablespoon at a time, whisking between each addition. Once all flour is incorporated, cook for 1 minute to remove the raw flour taste.'},
-      {group:null, text:'Slowly pour in the unsweetened plant milk while whisking constantly to prevent lumps. Simmer for about 6 minutes or until the gravy reaches your desired consistency. Season with salt and black pepper to taste.'},
-      {group:null, text:'Toast burger buns and layer with dill pickles, a fried steak patty, a generous ladle of gravy, and chopped chives. Serve immediately.'}
-    ]
-  },
-  {
-    id: 5, title: "Bret's Chili", url: '',
-    image: 'https://www.allrecipes.com/thmb/tDRu8q7-u9NnwsN3lvyVdoXX3KA=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/78299-boilermaker-tailgate-chili-ddmfs-hero-3x4-1195-670ba950f0e14209aa304c1dbf2b874f.jpg',
-    servings: 8, baseServings: 8, category: 'dinner', tags: [],
-    ingredients: [
-      {qty:2,unit:'lbs',name:'Impossible ground beef'},
-      {qty:2,unit:null,name:'(15 oz) cans chili beans, drained and rinsed'},
-      {qty:2,unit:null,name:'(15 oz) cans beans, drained and rinsed'},
-      {qty:2,unit:null,name:'(28 oz) cans diced tomatoes with juice'},
-      {qty:1,unit:null,name:'(6 oz) can tomato paste'},
-      {qty:3,unit:null,name:'stalks celery, chopped'},
-      {qty:1,unit:null,name:'large yellow onion, chopped'},
-      {qty:1,unit:null,name:'green bell pepper, seeded and chopped'},
-      {qty:1,unit:null,name:'red bell pepper, seeded and chopped'},
-      {qty:2,unit:null,name:'green chile peppers, seeded and chopped'},
-      {qty:1,unit:'tbsp',name:'bacon bits'},
-      {qty:4,unit:null,name:'cubes beef bouillon'},
-      {qty:0.5,unit:'cup',name:'beer'},
-      {qty:0.25,unit:'cup',name:'chili powder, or more to taste'},
-      {qty:1,unit:'tbsp',name:'minced garlic'},
-      {qty:1,unit:'tbsp',name:'Worcestershire sauce'},
-      {qty:1,unit:'tbsp',name:'dried oregano'},
-      {qty:2,unit:'tsp',name:'ground cumin'},
-      {qty:2,unit:'tsp',name:'hot pepper sauce'},
-      {qty:1,unit:'tsp',name:'dried basil'},
-      {qty:1,unit:'tsp',name:'cayenne pepper'},
-      {qty:1,unit:'tsp',name:'paprika'},
-      {qty:1,unit:'tsp',name:'white sugar'},
-      {qty:1,unit:'tsp',name:'salt, or more to taste'},
-      {qty:1,unit:'tsp',name:'ground black pepper, or more to taste'},
-      {qty:1,unit:null,name:'(10.5 oz) bag corn chips'}
-    ],
-    instructions: [
-      {group:'Brown the Meat', text:'Heat a large stock pot over medium-high heat. Crumble the Impossible ground beef into the hot pan. Cook, stirring frequently, until evenly browned.'},
-      {group:'Build the Chili', text:'Pour in chili beans, beans, diced tomatoes, and tomato paste. Add celery, onion, bell peppers, chile peppers, bacon bits, bouillon, beer, chili powder, garlic, Worcestershire sauce, oregano, cumin, hot pepper sauce, basil, cayenne, paprika, sugar, salt, and black pepper. Stir to blend.'},
-      {group:null, text:'Cover and simmer over low heat for at least 2 hours, stirring occasionally. The longer it simmers, the better it tastes.'},
-      {group:'Finish', text:'Taste and adjust salt, pepper, and chili powder as needed. Serve hot with corn chips, or cool, refrigerate, and reheat the next day.'}
-    ]
-  }
-];
+// ── Supabase ──────────────────────────────────────────────
+const SB_URL = 'https://fmjhhtwnjfwsecvingyi.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtamhodHduamZ3c2VjdmluZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjM3NDUsImV4cCI6MjA5NTE5OTc0NX0.b_qLaSkIlpwWPbk_fHSmPKuqSbbUWkddgS7Cr4s0MhI';
+const { createClient } = supabase;
+const db = createClient(SB_URL, SB_KEY);
 
-// Ids of recipes defined in code — used to preserve user deletions across updates
-const RECIPE_IDS = new Set(RECIPES.map(r => r.id));
-// User data fields — never overwritten when code recipes are updated
-const USER_FIELDS = ['cookedDates','ratings','comments','_scale','_metric'];
-const RV_VERSION = 7;
+function dbToRecipe(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    url: row.url || '',
+    image: row.image || '',
+    servings: row.servings || row.base_servings,
+    baseServings: row.base_servings,
+    category: row.category || '',
+    tags: row.tags || [],
+    ingredients: row.ingredients || [],
+    instructions: row.instructions || [],
+    cookedDates: row.cooked_dates || [],
+    ratings: row.ratings || {},
+    comments: row.comments || []
+  };
+}
+
+function recipeToDb(r) {
+  return {
+    id: r.id,
+    title: r.title,
+    url: r.url || '',
+    image: r.image || '',
+    servings: r.baseServings,
+    base_servings: r.baseServings,
+    category: r.category || '',
+    tags: r.tags || [],
+    ingredients: r.ingredients || [],
+    instructions: r.instructions || [],
+    cooked_dates: r.cookedDates || [],
+    ratings: r.ratings || {},
+    comments: r.comments || []
+  };
+}
+
+async function save(recipe) {
+  await db.from('recipes').upsert(recipeToDb(recipe));
+}
 
 let recipes = [];
-try {
-  const stored = JSON.parse(localStorage.getItem('rv_recipes') || 'null');
-  const deletedIds = new Set(JSON.parse(localStorage.getItem('rv_deleted_ids') || '[]'));
-  const storedVersion = parseInt(localStorage.getItem('rv_version') || '0');
-
-  // Purge any old placeholder recipes (ids 1, 2, 3) permanently
-  const PURGE_IDS = new Set([1, 2, 3]);
-
-  if (!stored) {
-    recipes = RECIPES.slice();
-  } else if (storedVersion < RV_VERSION) {
-    const storedMap = {};
-    stored.forEach(r => { storedMap[r.id] = r; });
-    const merged = [];
-    RECIPES.forEach(r => {
-      if (deletedIds.has(r.id)) return;
-      if (storedMap[r.id]) {
-        const existing = storedMap[r.id];
-        const updated = Object.assign({}, r);
-        USER_FIELDS.forEach(f => { if (existing[f] !== undefined) updated[f] = existing[f]; });
-        merged.push(updated);
-      } else {
-        merged.push(r);
-      }
-    });
-    // Keep user-added recipes, drop purged placeholder ids
-    stored.filter(r => !RECIPE_IDS.has(r.id) && !PURGE_IDS.has(r.id)).forEach(r => merged.push(r));
-    recipes = merged;
-  } else {
-    // Still purge old placeholders even on non-version-bump loads
-    recipes = stored.filter(r => !PURGE_IDS.has(r.id));
-  }
-  localStorage.setItem('rv_version', RV_VERSION);
-  localStorage.setItem('rv_recipes', JSON.stringify(recipes));
-} catch(e) { recipes = RECIPES.slice(); }
-let activeCategory = 'all';let activeCategory = 'all';
+let activeCategory = 'all';
 let activeTags = new Set();
 let showAdd = false;
 let openRecipe = null;
 
-function save() { try { localStorage.setItem('rv_recipes', JSON.stringify(recipes)); } catch(e) {} }
+async function init() {
+  document.getElementById('grid').innerHTML = '<div class="empty" style="grid-column:1/-1"><i class="ti ti-loader" style="font-size:28px;display:block;margin-bottom:.5rem"></i>Loading recipes...</div>';
+  const { data, error } = await db.from('recipes').select('*').order('id');
+  if (error) {
+    document.getElementById('grid').innerHTML = '<div class="empty">Could not connect. Check your connection and refresh.</div>';
+    return;
+  }
+  recipes = data.map(dbToRecipe);
+  renderFilters();
+  renderGrid();
+}
 
 function hostName(url) {
   try { return new URL(url.startsWith('http') ? url : 'https://' + url).hostname.replace('www.',''); }
@@ -637,27 +569,27 @@ function maybeCloseShop(e) { if (e.target.classList.contains('shop-modal-bg')) c
 function closeShoppingList() { document.getElementById('shop-modal-area').innerHTML = ''; }
 
 
-function markCooked(id) {
+async function markCooked(id) {
   const r = recipes.find(rec => rec.id === id);
   if (!r) return;
   if (!r.cookedDates) r.cookedDates = [];
   const today = new Date().toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
-  if (r.cookedDates[r.cookedDates.length-1] === today) return; // already logged today
+  if (r.cookedDates[r.cookedDates.length-1] === today) return;
   r.cookedDates.push(today);
-  save();
+  await save(r);
   renderModal();
 }
 
-function setRating(id, name, val) {
+async function setRating(id, name, val) {
   const r = recipes.find(rec => rec.id === id);
   if (!r) return;
   if (!r.ratings) r.ratings = {};
-  r.ratings[name] = r.ratings[name] === val ? null : val; // toggle off if same
-  save();
+  r.ratings[name] = r.ratings[name] === val ? null : val;
+  await save(r);
   renderModal();
 }
 
-function addComment(id) {
+async function addComment(id) {
   const r = recipes.find(rec => rec.id === id);
   if (!r) return;
   const input = document.getElementById('new-comment-' + id);
@@ -666,7 +598,7 @@ function addComment(id) {
   if (!r.comments) r.comments = [];
   const date = new Date().toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
   r.comments.push({date, text});
-  save();
+  await save(r);
   renderModal();
 }
 
@@ -685,16 +617,10 @@ function closeModal() {
   document.body.style.overflow = '';
   openRecipe = null;
 }
-function deleteRecipe(id) {
+async function deleteRecipe(id) {
   if (!confirm('Delete this recipe?')) return;
-  // If deleting a built-in recipe, remember it so updates don't restore it
-  if (RECIPE_IDS.has(id)) {
-    const deleted = new Set(JSON.parse(localStorage.getItem('rv_deleted_ids') || '[]'));
-    deleted.add(id);
-    localStorage.setItem('rv_deleted_ids', JSON.stringify([...deleted]));
-  }
+  await db.from('recipes').delete().eq('id', id);
   recipes = recipes.filter(r => r.id !== id);
-  save();
   closeModal();
   renderFilters();
   renderGrid();
@@ -745,7 +671,7 @@ function renderAddForm() {
     </div>`;
 }
 
-function saveRecipe() {
+async function saveRecipe() {
   const title = document.getElementById('new-title')?.value?.trim();
   const url = document.getElementById('new-url')?.value?.trim() || '';
   const img = document.getElementById('new-img')?.value?.trim() || '';
@@ -758,8 +684,9 @@ function saveRecipe() {
   const category = classifyRecipe(title, ingsRaw);
   const tags = TAGS.filter(t => document.getElementById('new-tag-' + t)?.checked);
   const id = Date.now();
-  recipes.push({ id, title, url, image: img, servings, baseServings: servings, category, tags, ingredients, instructions });
-  save();
+  const recipe = { id, title, url, image: img, servings, baseServings: servings, category, tags, ingredients, instructions, cookedDates: [], ratings: {}, comments: [] };
+  await save(recipe);
+  recipes.push(recipe);
   showAdd = false;
   renderAddForm();
   renderFilters();
@@ -769,8 +696,7 @@ function saveRecipe() {
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 function escHtml(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-renderFilters();
-renderGrid();
+init();
 </script>
 </body>
 </html>
