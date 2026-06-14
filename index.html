@@ -75,6 +75,25 @@ h1{font-size:22px;font-weight:500;display:flex;align-items:center;gap:8px}
 .shop-ing-list li:last-child{border:none}
 .shop-close{position:absolute;top:12px;right:12px;background:#fff;border:1px solid #ddd;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:#666}
 .shop-close:hover{background:#f0ede8}
+.log-section{border-top:1px solid #f0ede8;margin-top:1.4rem;padding-top:1.2rem}
+.log-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:8px}
+.last-cooked{font-size:13px;color:#888}
+.last-cooked strong{color:#1a1a1a}
+.family-ratings{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
+.rating-row{display:flex;align-items:center;justify-content:space-between;background:#f8f7f4;border-radius:8px;padding:7px 10px}
+.rating-name{font-size:13px;font-weight:500;color:#1a1a1a}
+.rating-btns{display:flex;gap:4px}
+.rating-btn{background:transparent;border:1px solid #e0ddd8;border-radius:6px;padding:3px 8px;font-size:15px;cursor:pointer;transition:all .15s;line-height:1}
+.rating-btn.selected{border-color:#1a1a1a;background:#1a1a1a}
+.comments-list{list-style:none;margin-bottom:.75rem}
+.comments-list li{font-size:13px;padding:7px 0;border-bottom:1px solid #f0ede8;display:flex;flex-direction:column;gap:2px}
+.comments-list li:last-child{border:none}
+.comment-meta{font-size:11px;color:#bbb}
+.comment-input-row{display:flex;gap:8px}
+.comment-input-row input{flex:1;border:1px solid #ddd;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none}
+.comment-input-row input:focus{border-color:#999}
+.cook-dates{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.85rem}
+.cook-date-chip{font-size:11px;background:#f0ede8;border-radius:10px;padding:2px 9px;color:#666}
 .inst-list{list-style:none}
 .inst-list li{padding:10px 0;border-bottom:1px solid #f0ede8;font-size:14px;line-height:1.65;display:flex;gap:12px}
 .inst-list li:last-child{border:none}
@@ -372,6 +391,7 @@ function renderGrid() {
           ${(r.tags||[]).map(t => `<span class="tag tag-${t}">${cap(t)}</span>`).join('')}
           <span style="font-size:12px;color:#999"><i class="ti ti-users" style="font-size:12px;vertical-align:-1px"></i> ${r.baseServings}</span>
         </div>
+        ${(r.cookedDates&&r.cookedDates.length) ? `<div style="font-size:11px;color:#aaa;padding:0 14px 10px;margin-top:-4px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> ${r.cookedDates[r.cookedDates.length-1]}</div>` : ''}
       </div>
     </div>`).join('');
 }
@@ -423,7 +443,38 @@ function renderModal() {
           <ol class="inst-list">
             ${r.instructions.map((step, i) => `<li><span class="step-num">${i+1}</span><span>${escHtml(step)}</span></li>`).join('')}
           </ol>
-          <div style="margin-top:1.25rem;display:flex;gap:8px">
+          <div class="log-section">
+            <div class="section-label" style="margin-top:0">Cook Log</div>
+            <div class="log-meta">
+              <div class="last-cooked">
+                ${(r.cookedDates&&r.cookedDates.length) ? `Last cooked: <strong>${r.cookedDates[r.cookedDates.length-1]}</strong>` : '<span style="color:#bbb">Never cooked yet</span>'}
+              </div>
+              <button class="btn" onclick="markCooked(${r.id})" style="font-size:12px;padding:4px 12px"><i class="ti ti-calendar-plus"></i> Mark cooked today</button>
+            </div>
+            ${(r.cookedDates&&r.cookedDates.length>1) ? `<ul class="cook-dates">${[...r.cookedDates].reverse().slice(1).map(d=>`<li class="cook-date-chip">${d}</li>`).join('')}</ul>` : ''}
+            <div class="section-label">Family Ratings</div>
+            <div class="family-ratings">
+              ${['Bret','Sadie','Griffin','Taylor'].map(name => {
+                const ratings = r.ratings || {};
+                const val = ratings[name] || null;
+                return `<div class="rating-row">
+                  <span class="rating-name">${name}</span>
+                  <div class="rating-btns">
+                    <button class="rating-btn${val==='👍'?' selected':''}" onclick="setRating(${r.id},'${name}','👍')" title="Love it">👍</button>
+                    <button class="rating-btn${val==='😐'?' selected':''}" onclick="setRating(${r.id},'${name}','😐')" title="It\'s ok">😐</button>
+                    <button class="rating-btn${val==='👎'?' selected':''}" onclick="setRating(${r.id},'${name}','👎')" title="Not for me">👎</button>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+            <div class="section-label">Comments</div>
+            ${(r.comments&&r.comments.length) ? `<ul class="comments-list">${r.comments.map(c=>`<li><span>${escHtml(c.text)}</span><span class="comment-meta">${c.date}</span></li>`).join('')}</ul>` : ''}
+            <div class="comment-input-row">
+              <input type="text" id="new-comment-${r.id}" placeholder="Add a note about this recipe…" onkeydown="if(event.key==='Enter')addComment(${r.id})">
+              <button class="btn" onclick="addComment(${r.id})">Add</button>
+            </div>
+          </div>
+          <div style="margin-top:1rem;display:flex;gap:8px">
             <button class="btn" onclick="openShoppingList(${r.id})"><i class="ti ti-shopping-cart"></i> Shopping list</button>
             <button class="btn" onclick="deleteRecipe(${r.id})" style="color:#c0392b;border-color:#e8c0bb"><i class="ti ti-trash"></i> Delete</button>
           </div>
@@ -538,6 +589,40 @@ function openShoppingList(id) {
 
 function maybeCloseShop(e) { if (e.target.classList.contains('shop-modal-bg')) closeShoppingList(); }
 function closeShoppingList() { document.getElementById('shop-modal-area').innerHTML = ''; }
+
+
+function markCooked(id) {
+  const r = recipes.find(rec => rec.id === id);
+  if (!r) return;
+  if (!r.cookedDates) r.cookedDates = [];
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+  if (r.cookedDates[r.cookedDates.length-1] === today) return; // already logged today
+  r.cookedDates.push(today);
+  save();
+  renderModal();
+}
+
+function setRating(id, name, val) {
+  const r = recipes.find(rec => rec.id === id);
+  if (!r) return;
+  if (!r.ratings) r.ratings = {};
+  r.ratings[name] = r.ratings[name] === val ? null : val; // toggle off if same
+  save();
+  renderModal();
+}
+
+function addComment(id) {
+  const r = recipes.find(rec => rec.id === id);
+  if (!r) return;
+  const input = document.getElementById('new-comment-' + id);
+  const text = input ? input.value.trim() : '';
+  if (!text) return;
+  if (!r.comments) r.comments = [];
+  const date = new Date().toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+  r.comments.push({date, text});
+  save();
+  renderModal();
+}
 
 function maybeClose(e) { if (e.target.classList.contains('modal-bg')) closeModal(); }
 function setMetric(val) { if (openRecipe) { openRecipe._metric = val; renderModal(); } }
