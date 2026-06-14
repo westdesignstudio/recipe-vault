@@ -823,19 +823,34 @@ async function updatePlanSlot(type, idx, val) {
 }
 
 function buildWeeklyShopList() {
-  const selectedIds = [...plannerPlan.lunches, ...plannerPlan.dinners].filter(Boolean);
-  if (!selectedIds.length) { alert('Add some meals to the plan first.'); return; }
+  const hasAny = [...plannerPlan.lunches, ...plannerPlan.dinners].some(Boolean);
+  if (!hasAny) { alert('Add some meals to the plan first.'); return; }
 
-  const selectedRecipes = selectedIds.map(id => recipes.find(r => r.id === id)).filter(Boolean);
+  // Count occurrences per recipe per meal type for scaling
+  // Lunch: 2 people, Dinner: 4 people
+  const recipeCounts = {}; // id -> { people, occurrences }
+  plannerPlan.lunches.filter(Boolean).forEach(id => {
+    if (!recipeCounts[id]) recipeCounts[id] = { people: 2, count: 0 };
+    recipeCounts[id].count++;
+  });
+  plannerPlan.dinners.filter(Boolean).forEach(id => {
+    if (!recipeCounts[id]) recipeCounts[id] = { people: 4, count: 0 };
+    // If same recipe used for both lunch and dinner, keep higher people count
+    else recipeCounts[id].people = Math.max(recipeCounts[id].people, 4);
+    recipeCounts[id].count++;
+  });
 
-  // Combine like ingredients
+  // Combine like ingredients with proper scaling
   const combined = {};
-  selectedRecipes.forEach(r => {
+  Object.entries(recipeCounts).forEach(([id, { people, count }]) => {
+    const r = recipes.find(rec => rec.id === parseInt(id));
+    if (!r) return;
+    const scale = (people * count) / r.baseServings;
     (r.ingredients || []).forEach(ing => {
       const baseName = ing.name.replace(/\s*\([^)]*\)\s*/g,'').trim().toLowerCase();
       if (!baseName) return;
       if (!combined[baseName]) combined[baseName] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g,'').trim(), entries: [] };
-      if (ing.qty !== null) combined[baseName].entries.push({ qty: ing.qty, unit: ing.unit });
+      if (ing.qty !== null) combined[baseName].entries.push({ qty: ing.qty * scale, unit: ing.unit });
       else combined[baseName].entries.push({ qty: null, unit: ing.unit });
     });
   });
