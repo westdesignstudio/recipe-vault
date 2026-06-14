@@ -232,7 +232,7 @@ function formatQty(qty, unit, scale, metric) {
   return displayUnit ? `${display} ${displayUnit}` : display;
 }
 
-const SAMPLE = [
+const DEFAULT_RECIPES = [
   {
     id: 1, title: 'Classic banana pancakes', url: 'https://www.allrecipes.com/recipe/20177/banana-pancakes-i/',
     image: 'https://www.allrecipes.com/thmb/0EoFE7DDgU6FcaGBpFLmMQ5k6hU=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/2166040-banana-pancakes-Chef-John-081-3x4-1-de5e09ba1a8c497e9c3f2ccb4b7f5e98.jpg',
@@ -376,7 +376,7 @@ const SAMPLE = [
 ];
 
 const RV_VERSION = 6; // bump when SAMPLE recipes are added or structurally changed
-const SAMPLE_IDS = new Set(SAMPLE.map(r => r.id));
+const DEFAULT_IDS = new Set(DEFAULT_RECIPES.map(r => r.id));
 // Fields the user can modify — never overwrite these from SAMPLE on merge
 const USER_FIELDS = ['cookedDates','ratings','comments','_scale','_metric'];
 
@@ -388,7 +388,7 @@ try {
 
   if (!stored) {
     // First ever load — seed from SAMPLE
-    recipes = SAMPLE.slice();
+    recipes = DEFAULT_RECIPES.slice();
   } else if (storedVersion < RV_VERSION) {
     // Version bump: smart merge
     // Build a map of what the user currently has
@@ -396,7 +396,7 @@ try {
     stored.forEach(r => { storedMap[r.id] = r; });
     // Merge each SAMPLE recipe
     const merged = [];
-    SAMPLE.forEach(s => {
+    DEFAULT_RECIPES.forEach(s => {
       if (deletedIds.has(s.id)) return; // user deleted this — respect it
       if (storedMap[s.id]) {
         // Recipe exists — update structural fields, keep user data
@@ -409,14 +409,14 @@ try {
       }
     });
     // Append any user-created recipes (high timestamp ids)
-    stored.filter(r => !SAMPLE_IDS.has(r.id)).forEach(r => merged.push(r));
+    stored.filter(r => !DEFAULT_IDS.has(r.id)).forEach(r => merged.push(r));
     recipes = merged;
   } else {
     recipes = stored;
   }
   localStorage.setItem('rv_version', RV_VERSION);
   localStorage.setItem('rv_recipes', JSON.stringify(recipes));
-} catch(e) { recipes = SAMPLE.slice(); }
+} catch(e) { recipes = DEFAULT_RECIPES.slice(); }
 let activeCategory = 'all';
 let activeTags = new Set();
 let showAdd = false;
@@ -746,7 +746,7 @@ function closeModal() {
 function deleteRecipe(id) {
   if (!confirm('Delete this recipe?')) return;
   // If deleting a SAMPLE recipe, remember it so merges don't restore it
-  if (SAMPLE_IDS.has(id)) {
+  if (DEFAULT_IDS.has(id)) {
     const deleted = new Set(JSON.parse(localStorage.getItem('rv_deleted_ids') || '[]'));
     deleted.add(id);
     localStorage.setItem('rv_deleted_ids', JSON.stringify([...deleted]));
