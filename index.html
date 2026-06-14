@@ -60,6 +60,16 @@ h1{font-size:22px;font-weight:500;display:flex;align-items:center;gap:8px}
 .ing-list li:last-child{border:none}
 .ing-name{color:#1a1a1a}
 .ing-amt{color:#888;font-size:13px;white-space:nowrap}
+.ing-group-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#bbb;padding:10px 0 4px;border:none!important;display:block}
+.shop-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;z-index:200}
+.shop-modal{background:#fff;border-radius:14px;border:1px solid #e8e8e4;width:100%;max-width:560px;overflow:hidden;position:relative;margin:auto;padding:1.5rem}
+.shop-modal h2{font-size:16px;font-weight:600;margin-bottom:1.25rem}
+.shop-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#aaa;margin:1rem 0 .4rem}
+.shop-ing-list{list-style:none;margin-bottom:.5rem}
+.shop-ing-list li{font-size:14px;padding:6px 0;border-bottom:1px solid #f5f3f0;display:flex;justify-content:space-between;gap:8px}
+.shop-ing-list li:last-child{border:none}
+.shop-close{position:absolute;top:12px;right:12px;background:#fff;border:1px solid #ddd;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:#666}
+.shop-close:hover{background:#f0ede8}
 .inst-list{list-style:none}
 .inst-list li{padding:10px 0;border-bottom:1px solid #f0ede8;font-size:14px;line-height:1.65;display:flex;gap:12px}
 .inst-list li:last-child{border:none}
@@ -91,6 +101,7 @@ h1{font-size:22px;font-weight:500;display:flex;align-items:center;gap:8px}
   <div id="add-form-area"></div>
   <div class="grid" id="grid"></div>
   <div id="modal-area"></div>
+  <div id="shop-modal-area"></div>
 </div>
 
 <script>
@@ -223,18 +234,29 @@ const SAMPLE = [
     image: 'https://theeburgerdude.com/wp-content/uploads/2022/09/9093e9_be25c727cd564af0a0f7dac13869e12b_mv2.webp',
     servings: 4, baseServings: 4, category: 'dinner',
     ingredients: [
-      {qty:1,unit:'lb',name:'plant-based meat'},{qty:6,unit:'oz',name:'jackfruit'},
-      {qty:0.5,unit:'tsp',name:'garlic powder (steak)'},{qty:0.5,unit:'tsp',name:'onion powder (steak)'},
-      {qty:0.5,unit:'tsp',name:'smoked paprika (steak)'},{qty:null,unit:null,name:'black pepper to taste (steak)'},
-      {qty:0.5,unit:'cup',name:'flour (dry batter)'},{qty:0.5,unit:'cup',name:'cornstarch'},
-      {qty:1,unit:'tbsp',name:'baking powder'},{qty:2,unit:'tsp',name:'garlic powder (dry batter)'},
-      {qty:2,unit:'tsp',name:'onion powder (dry batter)'},{qty:2,unit:'tsp',name:'smoked paprika (dry batter)'},
-      {qty:1,unit:'tsp',name:'cayenne'},{qty:1,unit:'tsp',name:'white pepper'},
-      {qty:1.5,unit:'tsp',name:'salt (dry batter)'},{qty:null,unit:null,name:'black pepper to taste (dry batter)'},
-      {qty:1,unit:'cup',name:'unsweetened plant milk (wet batter)'},{qty:1,unit:'tbsp',name:'apple cider vinegar'},
-      {qty:0.33,unit:'cup',name:'flour (wet batter)'},{qty:0.25,unit:'cup',name:'vegan butter (gravy)'},
-      {qty:4,unit:'tbsp',name:'flour (gravy)'},{qty:2,unit:'cups',name:'unsweetened plant milk (gravy)'},
-      {qty:null,unit:null,name:'salt and pepper to taste (gravy)'}
+      {group:'Country Fried Steak',qty:1,unit:'lb',name:'plant-based meat'},
+      {group:null,qty:6,unit:'oz',name:'jackfruit'},
+      {group:null,qty:0.5,unit:'tsp',name:'garlic powder'},
+      {group:null,qty:0.5,unit:'tsp',name:'onion powder'},
+      {group:null,qty:0.5,unit:'tsp',name:'smoked paprika'},
+      {group:null,qty:null,unit:null,name:'black pepper to taste'},
+      {group:'Dry Batter',qty:0.5,unit:'cup',name:'flour'},
+      {group:null,qty:0.5,unit:'cup',name:'cornstarch'},
+      {group:null,qty:1,unit:'tbsp',name:'baking powder'},
+      {group:null,qty:2,unit:'tsp',name:'garlic powder'},
+      {group:null,qty:2,unit:'tsp',name:'onion powder'},
+      {group:null,qty:2,unit:'tsp',name:'smoked paprika'},
+      {group:null,qty:1,unit:'tsp',name:'cayenne'},
+      {group:null,qty:1,unit:'tsp',name:'white pepper'},
+      {group:null,qty:1.5,unit:'tsp',name:'salt'},
+      {group:null,qty:null,unit:null,name:'black pepper to taste'},
+      {group:'Wet Batter',qty:1,unit:'cup',name:'unsweetened plant milk'},
+      {group:null,qty:1,unit:'tbsp',name:'apple cider vinegar'},
+      {group:null,qty:0.33,unit:'cup',name:'flour'},
+      {group:'Country Gravy',qty:0.25,unit:'cup',name:'vegan butter'},
+      {group:null,qty:4,unit:'tbsp',name:'flour'},
+      {group:null,qty:2,unit:'cups',name:'unsweetened plant milk'},
+      {group:null,qty:null,unit:null,name:'salt and pepper to taste'}
     ],
     instructions: [
       'Steam the jackfruit for 10 minutes. Once cool enough to handle, chop or shred the jackfruit. Discard seeds if desired.',
@@ -356,23 +378,127 @@ function renderModal() {
           </div>
           <div class="section-label">Ingredients</div>
           <ul class="ing-list">
-            ${r.ingredients.map(ing => `
-              <li>
-                <span class="ing-name">${escHtml(ing.name)}</span>
-                <span class="ing-amt">${ing.qty !== null ? escHtml(formatQty(ing.qty, ing.unit, scale, metric)) : (ing.unit || 'to taste')}</span>
-              </li>`).join('')}
+            ${renderIngredients(r.ingredients, scale, metric)}
           </ul>
           <div class="section-label">Instructions</div>
           <ol class="inst-list">
             ${r.instructions.map((step, i) => `<li><span class="step-num">${i+1}</span><span>${escHtml(step)}</span></li>`).join('')}
           </ol>
           <div style="margin-top:1.25rem;display:flex;gap:8px">
+            <button class="btn" onclick="openShoppingList(${r.id})"><i class="ti ti-shopping-cart"></i> Shopping list</button>
             <button class="btn" onclick="deleteRecipe(${r.id})" style="color:#c0392b;border-color:#e8c0bb"><i class="ti ti-trash"></i> Delete</button>
           </div>
         </div>
       </div>
     </div>`;
 }
+
+function renderIngredients(ingredients, scale, metric) {
+  let html = '';
+  let lastGroup = null;
+  ingredients.forEach(ing => {
+    const g = ing.group || null;
+    if (g && g !== lastGroup) {
+      html += `<li style="padding:0;border:none"><span class="ing-group-label">${escHtml(g)}</span></li>`;
+      lastGroup = g;
+    }
+    const amt = ing.qty !== null ? escHtml(formatQty(ing.qty, ing.unit, scale, metric)) : (ing.unit || 'to taste');
+    html += `<li><span class="ing-name">${escHtml(ing.name)}</span><span class="ing-amt">${amt}</span></li>`;
+  });
+  return html;
+}
+
+// Store aisle ordering for shopping list
+const STORE_SECTIONS = [
+  { label: 'Fresh Produce', keys: ['produce','vegetable','vegetables','fruit','fruits','fresh','herb','herbs','onion','garlic','lemon','lime','tomato','avocado','jalapen','cilantro','banana','apple','ginger','lettuce','spinach','kale','mushroom','pepper','chive','chives','shallot','scallion','potato','sweet potato','zucchini','squash','carrot','celery','cucumber','broccoli','cauliflower','jackfruit'] },
+  { label: 'Refrigerated', keys: ['milk','plant milk','oat milk','almond milk','soy milk','butter','vegan butter','cream','yogurt','egg','eggs','cheese','tofu','tempeh','meat','plant-based meat','beyond','impossible','mince','sausage','juice','orange juice'] },
+  { label: 'Meat & Seafood', keys: ['chicken','beef','pork','turkey','lamb','salmon','shrimp','tuna','steak','ground beef','ground turkey'] },
+  { label: 'Canned & Jarred', keys: ['canned','crushed tomatoes','diced tomatoes','tomato paste','tomato sauce','chickpeas','black beans','kidney beans','lentils','coconut milk','broth','stock','pickle','pickles','olive','olives','salsa','jam','jelly','syrup'] },
+  { label: 'Dry Goods & Baking', keys: ['flour','cornstarch','baking powder','baking soda','sugar','brown sugar','powdered sugar','oat','oats','rice','pasta','bread','panko','breadcrumb','cornmeal','quinoa','lentil','noodle','cracker','cereal','cocoa','chocolate chip','vanilla','yeast','salt','pepper','spice','seasoning','cumin','paprika','smoked paprika','cayenne','turmeric','cinnamon','oregano','thyme','basil','chili','curry','garam masala','garlic powder','onion powder','white pepper','black pepper'] },
+  { label: 'Oils, Vinegars & Sauces', keys: ['oil','olive oil','vegetable oil','canola oil','coconut oil','vinegar','apple cider vinegar','soy sauce','hot sauce','worcestershire','sriracha','mustard','ketchup','mayo','tahini','miso','fish sauce','oyster sauce','hoisin','teriyaki'] },
+  { label: 'Nuts, Seeds & Dried Fruit', keys: ['nut','nuts','almond','almonds','cashew','cashews','walnut','walnuts','peanut','peanuts','pecan','pecans','pistachio','pine nut','seed','seeds','chia','flax','sesame','sunflower','pumpkin seed','raisin','cranberry','dried fruit'] },
+  { label: 'Bread & Bakery', keys: ['bun','buns','burger bun','bread','roll','rolls','tortilla','pita','naan','bagel','english muffin'] },
+  { label: 'Frozen', keys: ['frozen','ice cream'] },
+  { label: 'Other', keys: [] }
+];
+
+function assignSection(name) {
+  const lower = name.toLowerCase();
+  for (const section of STORE_SECTIONS) {
+    if (section.keys.some(k => lower.includes(k))) return section.label;
+  }
+  return 'Other';
+}
+
+function openShoppingList(id) {
+  const r = recipes.find(rec => rec.id === id);
+  if (!r) return;
+  const scale = r._scale || 1;
+  const metric = r._metric || false;
+
+  // Combine like ingredients by normalized name
+  const combined = {};
+  r.ingredients.forEach(ing => {
+    // Strip group parentheticals like "(dry batter)" from name for combining
+    const baseName = ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim().toLowerCase();
+    if (!baseName) return;
+    const key = baseName;
+    if (!combined[key]) combined[key] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim(), entries: [] };
+    if (ing.qty !== null) combined[key].entries.push({ qty: ing.qty * scale, unit: ing.unit, metric });
+    else combined[key].entries.push({ qty: null, unit: ing.unit, metric });
+  });
+
+  // Group by store section
+  const sections = {};
+  Object.values(combined).forEach(item => {
+    const sec = assignSection(item.name);
+    if (!sections[sec]) sections[sec] = [];
+    // Format combined qty: if multiple entries with same unit, sum them
+    let display = '';
+    if (item.entries.length === 1) {
+      const e = item.entries[0];
+      display = e.qty !== null ? formatQty(e.qty, e.unit, 1, e.metric) : (e.unit || 'to taste');
+    } else {
+      // Group by unit
+      const byUnit = {};
+      item.entries.forEach(e => {
+        if (e.qty === null) return;
+        const u = e.unit || '';
+        byUnit[u] = (byUnit[u] || 0) + e.qty;
+      });
+      const parts = Object.entries(byUnit).map(([u, q]) => formatQty(q, u || null, 1, metric));
+      display = parts.join(' + ');
+    }
+    sections[sec].push({ name: item.name, display });
+  });
+
+  // Render in store section order
+  let body = '';
+  STORE_SECTIONS.forEach(sec => {
+    const items = sections[sec.label];
+    if (!items || !items.length) return;
+    body += `<div class="shop-section-label">${sec.label}</div><ul class="shop-ing-list">`;
+    items.forEach(i => {
+      body += `<li><span>${escHtml(i.name)}</span><span style="color:#888;font-size:13px">${escHtml(i.display)}</span></li>`;
+    });
+    body += '</ul>';
+  });
+
+  document.getElementById('shop-modal-area').innerHTML = `
+    <div class="shop-modal-bg" onclick="maybeCloseShop(event)">
+      <div class="shop-modal">
+        <button class="shop-close" onclick="closeShoppingList()"><i class="ti ti-x"></i></button>
+        <h2><i class="ti ti-shopping-cart" style="margin-right:6px"></i>Shopping list — ${escHtml(r.title)}</h2>
+        ${body}
+        <div style="margin-top:1.25rem">
+          <button class="btn" onclick="window.print()"><i class="ti ti-printer"></i> Print</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function maybeCloseShop(e) { if (e.target.classList.contains('shop-modal-bg')) closeShoppingList(); }
+function closeShoppingList() { document.getElementById('shop-modal-area').innerHTML = ''; }
 
 function maybeClose(e) { if (e.target.classList.contains('modal-bg')) closeModal(); }
 function setMetric(val) { if (openRecipe) { openRecipe._metric = val; renderModal(); } }
