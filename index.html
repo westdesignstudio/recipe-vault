@@ -313,9 +313,50 @@ const SAMPLE = [
       {group:null, text:'To keep the fried steaks warm while making the gravy, place the wire rack on a baking sheet and hold in an oven set to 250°F.'},
       {group:'Country Gravy', text:'Melt the vegan butter in a pan over medium heat. Add the flour 1 tablespoon at a time, whisking between each addition. Once all flour is incorporated, cook for 1 minute to remove the raw flour taste.'},
       {group:null, text:'Slowly pour in the unsweetened plant milk while whisking constantly to prevent lumps. Simmer for about 6 minutes or until the gravy reaches your desired consistency. Season with salt and black pepper to taste.'},
-      {group:'To Serve', text:'Toast burger buns and layer with dill pickles, a fried steak patty, a generous ladle of gravy, and chopped chives. Serve immediately.'}
+      {group:null, text:'Toast burger buns and layer with dill pickles, a fried steak patty, a generous ladle of gravy, and chopped chives. Serve immediately.'}
     ]
   },
+  ,
+  {
+    id: 5, title: "Bret's Chili", url: '',
+    image: '',
+    servings: 8, baseServings: 8, category: 'dinner', tags: [],
+    ingredients: [
+      {qty:2,unit:'lbs',name:'Impossible ground beef'},
+      {qty:2,unit:null,name:'(15 oz) cans chili beans, drained and rinsed'},
+      {qty:2,unit:null,name:'(15 oz) cans beans, drained and rinsed'},
+      {qty:2,unit:null,name:'(28 oz) cans diced tomatoes with juice'},
+      {qty:1,unit:null,name:'(6 oz) can tomato paste'},
+      {qty:3,unit:null,name:'stalks celery, chopped'},
+      {qty:1,unit:null,name:'large yellow onion, chopped'},
+      {qty:1,unit:null,name:'green bell pepper, seeded and chopped'},
+      {qty:1,unit:null,name:'red bell pepper, seeded and chopped'},
+      {qty:2,unit:null,name:'green chile peppers, seeded and chopped'},
+      {qty:1,unit:'tbsp',name:'bacon bits'},
+      {qty:4,unit:null,name:'cubes beef bouillon'},
+      {qty:0.5,unit:'cup',name:'beer'},
+      {qty:0.25,unit:'cup',name:'chili powder, or more to taste'},
+      {qty:1,unit:'tbsp',name:'minced garlic'},
+      {qty:1,unit:'tbsp',name:'Worcestershire sauce'},
+      {qty:1,unit:'tbsp',name:'dried oregano'},
+      {qty:2,unit:'tsp',name:'ground cumin'},
+      {qty:2,unit:'tsp',name:'hot pepper sauce'},
+      {qty:1,unit:'tsp',name:'dried basil'},
+      {qty:1,unit:'tsp',name:'cayenne pepper'},
+      {qty:1,unit:'tsp',name:'paprika'},
+      {qty:1,unit:'tsp',name:'white sugar'},
+      {qty:1,unit:'tsp',name:'salt, or more to taste'},
+      {qty:1,unit:'tsp',name:'ground black pepper, or more to taste'},
+      {qty:1,unit:null,name:'(10.5 oz) bag corn chips'}
+    ],
+    instructions: [
+      {group:'Brown the Meat', text:'Heat a large stock pot over medium-high heat. Crumble the Impossible ground beef into the hot pan. Cook, stirring frequently, until evenly browned.'},
+      {group:'Build the Chili', text:'Pour in chili beans, beans, diced tomatoes, and tomato paste. Add celery, onion, bell peppers, chile peppers, bacon bits, bouillon, beer, chili powder, garlic, Worcestershire sauce, oregano, cumin, hot pepper sauce, basil, cayenne, paprika, sugar, salt, and black pepper. Stir to blend.'},
+      {group:null, text:'Cover and simmer over low heat for at least 2 hours, stirring occasionally. The longer it simmers, the better it tastes.'},
+      {group:'Finish', text:'Taste and adjust salt, pepper, and chili powder as needed. Serve hot with corn chips, or cool, refrigerate, and reheat the next day.'}
+    ]
+  }
+  ,
   {
     id: 3, title: 'No-bake chocolate energy balls', url: '',
     image: '',
@@ -334,22 +375,48 @@ const SAMPLE = [
   }
 ];
 
-const RV_VERSION = 4; // bump this whenever SAMPLE recipes are added or changed
+const RV_VERSION = 5; // bump when SAMPLE recipes are added or structurally changed
+const SAMPLE_IDS = new Set(SAMPLE.map(r => r.id));
+// Fields the user can modify — never overwrite these from SAMPLE on merge
+const USER_FIELDS = ['cookedDates','ratings','comments','_scale','_metric'];
 
 let recipes = [];
 try {
   const stored = JSON.parse(localStorage.getItem('rv_recipes') || 'null');
+  const deletedIds = new Set(JSON.parse(localStorage.getItem('rv_deleted_ids') || '[]'));
   const storedVersion = parseInt(localStorage.getItem('rv_version') || '0');
-  if (!stored || storedVersion < RV_VERSION) {
-    // Merge: keep any user-added recipes (id > 1000), replace SAMPLE ones by id
-    const userAdded = stored ? stored.filter(r => r.id > 1000000000) : [];
-    recipes = [...SAMPLE, ...userAdded];
-    localStorage.setItem('rv_version', RV_VERSION);
-    localStorage.setItem('rv_recipes', JSON.stringify(recipes));
+
+  if (!stored) {
+    // First ever load — seed from SAMPLE
+    recipes = SAMPLE.slice();
+  } else if (storedVersion < RV_VERSION) {
+    // Version bump: smart merge
+    // Build a map of what the user currently has
+    const storedMap = {};
+    stored.forEach(r => { storedMap[r.id] = r; });
+    // Merge each SAMPLE recipe
+    const merged = [];
+    SAMPLE.forEach(s => {
+      if (deletedIds.has(s.id)) return; // user deleted this — respect it
+      if (storedMap[s.id]) {
+        // Recipe exists — update structural fields, keep user data
+        const existing = storedMap[s.id];
+        const updated = Object.assign({}, s);
+        USER_FIELDS.forEach(f => { if (existing[f] !== undefined) updated[f] = existing[f]; });
+        merged.push(updated);
+      } else {
+        merged.push(s); // new SAMPLE recipe the user hasn't seen yet
+      }
+    });
+    // Append any user-created recipes (high timestamp ids)
+    stored.filter(r => !SAMPLE_IDS.has(r.id)).forEach(r => merged.push(r));
+    recipes = merged;
   } else {
     recipes = stored;
   }
-} catch(e) { recipes = SAMPLE; }
+  localStorage.setItem('rv_version', RV_VERSION);
+  localStorage.setItem('rv_recipes', JSON.stringify(recipes));
+} catch(e) { recipes = SAMPLE.slice(); }
 let activeCategory = 'all';
 let activeTags = new Set();
 let showAdd = false;
@@ -678,6 +745,12 @@ function closeModal() {
 }
 function deleteRecipe(id) {
   if (!confirm('Delete this recipe?')) return;
+  // If deleting a SAMPLE recipe, remember it so merges don't restore it
+  if (SAMPLE_IDS.has(id)) {
+    const deleted = new Set(JSON.parse(localStorage.getItem('rv_deleted_ids') || '[]'));
+    deleted.add(id);
+    localStorage.setItem('rv_deleted_ids', JSON.stringify([...deleted]));
+  }
   recipes = recipes.filter(r => r.id !== id);
   save();
   closeModal();
