@@ -253,7 +253,7 @@ function dbToRecipe(row) {
     servings: row.servings || row.base_servings,
     baseServings: row.base_servings,
     category: row.category || '',
-    tags: row.tags || [],
+    tags: (row.tags || []).includes('vegan') && !(row.tags || []).includes('vegetarian') ? [...row.tags, 'vegetarian'] : (row.tags || []),
     ingredients: row.ingredients || [],
     instructions: row.instructions || [],
     cookedDates: row.cooked_dates || [],
