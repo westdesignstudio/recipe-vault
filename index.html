@@ -35,6 +35,11 @@ h1{font-size:22px;font-weight:500;display:flex;align-items:center;gap:8px}
 .tag-dessert{background:#EEEDFE;color:#3C3489}
 .tag-drink{background:#E1F5EE;color:#085041}
 .tag-default{background:#f0ede8;color:#666}
+.tag-vegan{background:#D6F0E0;color:#0A5C2E}
+.tag-vegetarian{background:#E8F5D6;color:#2E5C0A}
+.tag-gluten-free{background:#FEF3DC;color:#7A4F00}
+.tag-dairy-free{background:#E8EEF8;color:#1A3A6B}
+.filter-group-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#bbb;margin-bottom:4px}
 .source{font-size:12px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Modal */
@@ -106,6 +111,7 @@ h1{font-size:22px;font-weight:500;display:flex;align-items:center;gap:8px}
 
 <script>
 const CATEGORIES = ['all','breakfast','lunch','dinner','snack','dessert','drink'];
+const TAGS = ['vegan','vegetarian','gluten-free','dairy-free'];
 const BREAKFAST_KW = ['egg','pancake','waffle','oatmeal','toast','bagel','muffin','frittata','omelet','granola','french toast','biscuit','scone','smoothie bowl','porridge','cereal','crepe','quiche'];
 const LUNCH_KW = ['sandwich','wrap','salad','soup','quesadilla','panini','bowl','pita','taco','burger','club','blt','ramen','pho','sushi'];
 const DINNER_KW = ['chicken','beef','pasta','steak','roast','salmon','shrimp','pork','lamb','casserole','stew','curry','risotto','lasagna','bake','grilled','chili','fillet','tenderloin','cod','tilapia','turkey'];
@@ -230,9 +236,9 @@ const SAMPLE = [
     ]
   },
   {
-    id: 4, title: 'Vegan chicken fried steak', url: 'https://theeburgerdude.com/vegan-chicken-fried-steak/#recipe',
+    id: 4, title: "Chik'n Fried Steak", url: 'https://theeburgerdude.com/vegan-chicken-fried-steak/#recipe',
     image: 'https://theeburgerdude.com/wp-content/uploads/2022/09/9093e9_be25c727cd564af0a0f7dac13869e12b_mv2.webp',
-    servings: 4, baseServings: 4, category: 'dinner',
+    servings: 4, baseServings: 4, category: 'dinner', tags: ['vegan'],
     ingredients: [
       {group:'Country Fried Steak',qty:1,unit:'lb',name:'plant-based meat'},
       {group:null,qty:6,unit:'oz',name:'jackfruit'},
@@ -292,7 +298,8 @@ const SAMPLE = [
 
 let recipes = [];
 try { recipes = JSON.parse(localStorage.getItem('rv_recipes') || 'null') || SAMPLE; } catch(e) { recipes = SAMPLE; }
-let activeFilter = 'all';
+let activeCategory = 'all';
+let activeTags = new Set();
 let showAdd = false;
 let openRecipe = null;
 
@@ -307,16 +314,32 @@ function renderFilters() {
   const el = document.getElementById('filters');
   const counts = {};
   CATEGORIES.forEach(c => { counts[c] = c === 'all' ? recipes.length : recipes.filter(r => r.category === c).length; });
-  el.innerHTML = CATEGORIES.filter(c => c === 'all' || counts[c] > 0).map(c => `
-    <button class="pill ${activeFilter === c ? 'active' : ''}" onclick="setFilter('${c}')">
-      ${c.charAt(0).toUpperCase() + c.slice(1)}${c !== 'all' ? ' (' + counts[c] + ')' : ''}
-    </button>`).join('');
+  const tagCounts = {};
+  TAGS.forEach(t => { tagCounts[t] = recipes.filter(r => r.tags && r.tags.includes(t)).length; });
+  const hasTags = TAGS.some(t => tagCounts[t] > 0);
+  el.innerHTML =
+    `<div style="display:flex;flex-direction:column;gap:8px;width:100%">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${CATEGORIES.filter(c => c === 'all' || counts[c] > 0).map(c => `
+          <button class="pill ${activeCategory === c ? 'active' : ''}" onclick="setCategory('${c}')">
+            ${c === 'all' ? 'All' : cap(c)}${c !== 'all' ? ' (' + counts[c] + ')' : ''}
+          </button>`).join('')}
+      </div>
+      ${hasTags ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${TAGS.filter(t => tagCounts[t] > 0).map(t => `
+          <button class="pill ${activeTags.has(t) ? 'active' : ''}" onclick="toggleTag('${t}')">
+            ${cap(t)} (${tagCounts[t]})
+          </button>`).join('')}
+      </div>` : ''}
+    </div>`;
 }
 
-function setFilter(f) { activeFilter = f; renderFilters(); renderGrid(); }
+function setCategory(c) { activeCategory = c; renderFilters(); renderGrid(); }
+function toggleTag(t) { activeTags.has(t) ? activeTags.delete(t) : activeTags.add(t); renderFilters(); renderGrid(); }
 
 function renderGrid() {
-  const filtered = activeFilter === 'all' ? recipes : recipes.filter(r => r.category === activeFilter);
+  let filtered = activeCategory === 'all' ? recipes : recipes.filter(r => r.category === activeCategory);
+  if (activeTags.size > 0) filtered = filtered.filter(r => [...activeTags].every(t => r.tags && r.tags.includes(t)));
   const el = document.getElementById('grid');
   if (!filtered.length) {
     el.innerHTML = '<div class="empty"><i class="ti ti-bowl-chopsticks" style="font-size:36px;display:block;margin-bottom:.5rem"></i>No recipes in this category yet</div>';
@@ -332,6 +355,7 @@ function renderGrid() {
         ${r.url ? `<div class="source">${hostName(r.url)}</div>` : ''}
         <div class="card-meta">
           <span class="tag tag-${r.category || 'default'}">${cap(r.category || 'other')}</span>
+          ${(r.tags||[]).map(t => `<span class="tag tag-${t}">${cap(t)}</span>`).join('')}
           <span style="font-size:12px;color:#999"><i class="ti ti-users" style="font-size:12px;vertical-align:-1px"></i> ${r.baseServings}</span>
         </div>
       </div>
@@ -364,6 +388,7 @@ function renderModal() {
           <div class="modal-title">${escHtml(r.title)}</div>
           ${r.url ? `<div class="modal-source">From <a href="${r.url.startsWith('http') ? r.url : 'https://' + r.url}" target="_blank">${hostName(r.url)}</a></div>` : ''}
           <span class="tag tag-${r.category || 'default'}" style="display:inline-block;margin-bottom:.75rem">${cap(r.category || 'other')}</span>
+          ${(r.tags||[]).map(t => `<span class="tag tag-${t}" style="display:inline-block;margin-bottom:.75rem;margin-left:4px">${cap(t)}</span>`).join('')}
           <div class="controls-row">
             <div class="unit-toggle">
               <button class="toggle-btn ${!metric ? 'active' : ''}" onclick="setMetric(false)">Imperial</button>
@@ -556,6 +581,12 @@ function renderAddForm() {
         <label>Instructions — one step per line</label>
         <textarea id="new-inst" rows="7" placeholder="Mix the dry ingredients together in a large bowl.&#10;Add the wet ingredients and stir until just combined.&#10;Bake at 350°F for 25 minutes until golden."></textarea>
       </div>
+      <div class="field">
+        <label>Tags</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+          ${TAGS.map(t => `<label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="new-tag-${t}" value="${t}"> ${cap(t)}</label>`).join('')}
+        </div>
+      </div>
       <div style="display:flex;gap:8px;margin-top:.25rem">
         <button class="btn primary" onclick="saveRecipe()">Save recipe</button>
         <button class="btn" onclick="openAdd()">Cancel</button>
@@ -574,8 +605,9 @@ function saveRecipe() {
   const ingredients = parseIngredients(ingsRaw);
   const instructions = instRaw.split('\n').filter(l => l.trim());
   const category = classifyRecipe(title, ingsRaw);
+  const tags = TAGS.filter(t => document.getElementById('new-tag-' + t)?.checked);
   const id = Date.now();
-  recipes.push({ id, title, url, image: img, servings, baseServings: servings, category, ingredients, instructions });
+  recipes.push({ id, title, url, image: img, servings, baseServings: servings, category, tags, ingredients, instructions });
   save();
   showAdd = false;
   renderAddForm();
