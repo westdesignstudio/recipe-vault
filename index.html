@@ -121,6 +121,10 @@ h1 i{font-size:22px;opacity:.5}
 .comment-input-row input:focus{border-color:#999}
 .cook-dates{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.85rem}
 .cook-date-chip{font-size:11px;background:var(--bg-muted);border-radius:10px;padding:2px 9px;color:var(--text-muted)}
+.nutrition-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:.5rem}
+.nutrition-cell{background:var(--bg-muted);border-radius:var(--radius-sm);padding:8px 10px;text-align:center}
+.nutrition-val{font-size:16px;font-weight:500;color:var(--text);display:block;line-height:1.2}
+.nutrition-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-top:2px;display:block}
 
 /* Add form */
 .add-form{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);padding:1.6rem;margin-bottom:1.75rem;box-shadow:0 2px 12px rgba(0,0,0,.04)}
@@ -254,7 +258,8 @@ function dbToRecipe(row) {
     instructions: row.instructions || [],
     cookedDates: row.cooked_dates || [],
     ratings: row.ratings || {},
-    comments: row.comments || []
+    comments: row.comments || [],
+    nutrition: row.nutrition || {}
   };
 }
 
@@ -272,7 +277,8 @@ function recipeToDb(r) {
     instructions: r.instructions || [],
     cooked_dates: r.cookedDates || [],
     ratings: r.ratings || {},
-    comments: r.comments || []
+    comments: r.comments || [],
+    nutrition: r.nutrition || {}
   };
 }
 
@@ -403,6 +409,13 @@ function renderModal() {
           <ol class="inst-list">
             ${renderInstructions(r.instructions)}
           </ol>
+          ${r.nutrition && Object.keys(r.nutrition).length ? `
+          <div class="section-label">Nutrition <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">per serving</span></div>
+          <div class="nutrition-grid">
+            ${[['Calories','calories','kcal'],['Protein','protein','g'],['Carbs','carbs','g'],['Fat','fat','g'],['Fiber','fiber','g'],['Sugar','sugar','g'],['Sodium','sodium','mg']].filter(([,k]) => r.nutrition[k] != null).map(([label,key,unit]) =>
+              `<div class="nutrition-cell"><span class="nutrition-val">${r.nutrition[key]}<span style="font-size:11px;font-weight:400">${unit}</span></span><span class="nutrition-lbl">${label}</span></div>`
+            ).join('')}
+          </div>` : ''}
           <div class="log-section">
             <div class="section-label" style="margin-top:0">Cook Log</div>
             <div class="log-meta">
@@ -453,7 +466,6 @@ function renderInstructions(instructions) {
     if (g && g !== lastGroup) {
       html += `<li style="padding:0;border:none;display:block"><span class="ing-group-label">${escHtml(g)}</span></li>`;
       lastGroup = g;
-      stepNum = 0;
     }
     stepNum++;
     html += `<li><span class="step-num">${stepNum}</span><span>${escHtml(text)}</span></li>`;
@@ -664,6 +676,14 @@ function renderAddForm() {
           ${TAGS.map(t => `<label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="new-tag-${t}" value="${t}"> ${cap(t)}</label>`).join('')}
         </div>
       </div>
+      <div class="field">
+        <label>Nutrition per serving (optional)</label>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px">
+          ${[['Calories','calories'],['Protein (g)','protein'],['Carbs (g)','carbs'],['Fat (g)','fat'],['Fiber (g)','fiber'],['Sugar (g)','sugar'],['Sodium (mg)','sodium']].map(([label,key]) =>
+            `<div><label style="font-size:11px;color:var(--text-faint)">${label}</label><input type="number" id="new-nut-${key}" min="0" step="0.1" style="padding:6px 8px"></div>`
+          ).join('')}
+        </div>
+      </div>
       <div style="display:flex;gap:8px;margin-top:.25rem">
         <button class="btn primary" onclick="saveRecipe()">Save recipe</button>
         <button class="btn" onclick="openAdd()">Cancel</button>
@@ -684,7 +704,10 @@ async function saveRecipe() {
   const category = classifyRecipe(title, ingsRaw);
   const tags = TAGS.filter(t => document.getElementById('new-tag-' + t)?.checked);
   const id = Date.now();
-  const recipe = { id, title, url, image: img, servings, baseServings: servings, category, tags, ingredients, instructions, cookedDates: [], ratings: {}, comments: [] };
+  const nutKeys = ['calories','protein','carbs','fat','fiber','sugar','sodium'];
+  const nutrition = {};
+  nutKeys.forEach(k => { const v = document.getElementById('new-nut-'+k)?.value; if (v !== '' && v != null) nutrition[k] = parseFloat(v); });
+  const recipe = { id, title, url, image: img, servings, baseServings: servings, category, tags, ingredients, instructions, cookedDates: [], ratings: {}, comments: [], nutrition };
   await save(recipe);
   recipes.push(recipe);
   showAdd = false;
