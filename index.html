@@ -319,7 +319,7 @@ const SAMPLE = [
   ,
   {
     id: 5, title: "Bret's Chili", url: '',
-    image: '',
+    image: 'https://www.allrecipes.com/thmb/tDRu8q7-u9NnwsN3lvyVdoXX3KA=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/78299-boilermaker-tailgate-chili-ddmfs-hero-3x4-1195-670ba950f0e14209aa304c1dbf2b874f.jpg',
     servings: 8, baseServings: 8, category: 'dinner', tags: [],
     ingredients: [
       {qty:2,unit:'lbs',name:'Impossible ground beef'},
@@ -375,7 +375,7 @@ const SAMPLE = [
   }
 ];
 
-const RV_VERSION = 5; // bump when SAMPLE recipes are added or structurally changed
+const RV_VERSION = 6; // bump when SAMPLE recipes are added or structurally changed
 const SAMPLE_IDS = new Set(SAMPLE.map(r => r.id));
 // Fields the user can modify — never overwrite these from SAMPLE on merge
 const USER_FIELDS = ['cookedDates','ratings','comments','_scale','_metric'];
