@@ -700,26 +700,26 @@ function renderHistory(plans) {
     const kidsLunch = plan.kidsLunch?.enabled && plan.kidsLunch?.mainId ? recipes.find(r=>r.id===plan.kidsLunch.mainId)?.title : null;
     const hasContent = lunch || dinner || kidsLunch;
     if (!hasContent) return '';
-    return \`<div class="history-week">
+    return `<div class="history-week">
       <div class="history-week-header" onclick="toggleHistoryWeek(this)">
         <span class="history-week-label">\${weekLabel(p.week_start)}</span>
         <span class="history-week-badge \${p.committed ? 'committed' : 'draft'}">\${p.committed ? 'Committed' : 'Draft'}</span>
       </div>
       <div class="history-week-body">
-        \${lunch ? \`<div class="history-meal-row"><span class="history-meal-label">Lunch</span><span>\${escHtml(lunch)}\${lunchSide ? ' + ' + escHtml(lunchSide) : ''}</span></div>\` : ''}
-        \${kidsLunch ? \`<div class="history-meal-row"><span class="history-meal-label">Kids</span><span>\${escHtml(kidsLunch)}</span></div>\` : ''}
-        \${dinner ? \`<div class="history-meal-row"><span class="history-meal-label">Dinner</span><span>\${escHtml(dinner)}\${dinnerSide ? ' + ' + escHtml(dinnerSide) : ''}</span></div>\` : ''}
-        \${p.committed_at ? \`<div style="font-size:11px;color:var(--text-faint);margin-top:8px">Committed \${new Date(p.committed_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>\` : ''}
+        \${lunch ? `<div class="history-meal-row"><span class="history-meal-label">Lunch</span><span>\${escHtml(lunch)}\${lunchSide ? ' + ' + escHtml(lunchSide) : ''}</span></div>` : ''}
+        \${kidsLunch ? `<div class="history-meal-row"><span class="history-meal-label">Kids</span><span>\${escHtml(kidsLunch)}</span></div>` : ''}
+        \${dinner ? `<div class="history-meal-row"><span class="history-meal-label">Dinner</span><span>\${escHtml(dinner)}\${dinnerSide ? ' + ' + escHtml(dinnerSide) : ''}</span></div>` : ''}
+        \${p.committed_at ? `<div style="font-size:11px;color:var(--text-faint);margin-top:8px">Committed \${new Date(p.committed_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>` : ''}
       </div>
-    </div>\`;
+    </div>`;
   }).join('');
-  el.innerHTML = \`<div class="planner" style="margin-bottom:1.75rem">
+  el.innerHTML = `<div class="planner" style="margin-bottom:1.75rem">
     <div class="planner-header" style="margin-bottom:1.25rem">
       <div class="planner-title"><i class="ti ti-clock-history" style="font-size:18px;opacity:.5;margin-right:6px"></i>Plan History</div>
       <button class="btn" onclick="openHistory()">Close</button>
     </div>
     \${rows || '<div style="color:var(--text-faint);font-size:13px">No completed plans yet.</div>'}
-  </div>\`;
+  </div>`;
 }
 
 function toggleHistoryWeek(header) {
