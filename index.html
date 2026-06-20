@@ -810,6 +810,78 @@ function getProduceHint(name, qty, unit) {
   return null;
 }
 
+
+// ── Shopping list: skip seasonings ────────────────────────
+const SKIP_INGREDIENTS = [
+  'salt','black pepper','white pepper','pepper to taste','salt and pepper',
+  'kosher salt','sea salt','ground pepper',
+  'cumin','paprika','smoked paprika','cayenne','turmeric','coriander',
+  'garam masala','oregano','dried oregano','basil','dried basil','thyme',
+  'chili powder','chile powder','chili flakes','red pepper flake',
+  'garlic powder','onion powder','dried dill','dried ginger',
+  'baking powder','baking soda','black salt'
+];
+
+function shouldSkipIngredient(name) {
+  const lower = name.toLowerCase().replace(/[,().]/g,'');
+  return SKIP_INGREDIENTS.some(skip => {
+    const words = lower.split(/\s+/);
+    return words.includes(skip) || lower === skip || lower.startsWith(skip + ' ') || lower.endsWith(' ' + skip);
+  });
+}
+
+// ── Package size hints (Fry's / Sprouts) ─────────────────
+// Each entry: match keywords (any), qty threshold, unit → hint string
+const PACKAGE_HINTS = [
+  // Canned
+  { match:['coconut milk'],                hint: '1 can (13.5 oz)' },
+  { match:['chickpea','garbanzo'],         hint: '1 can (15 oz)' },
+  { match:['black bean'],                  hint: '1 can (15 oz)' },
+  { match:['kidney bean'],                 hint: '1 can (15 oz)' },
+  { match:['diced tomato'],                qtyThreshold:20, hint:'1 can (14.5 oz)', bigHint:'1 can (28 oz)' },
+  { match:['crushed tomato'],              hint: '1 can (28 oz)' },
+  { match:['tomato paste'],                hint: '1 can (6 oz)' },
+  { match:['tomato sauce'],                hint: '1 can (15 oz)' },
+  { match:['chili bean','chili bean'],     hint: '1 can (15 oz)' },
+  { match:['heart of palm'],               hint: '1 can (14 oz)' },
+  { match:['vegetable broth','veggie broth','vegetable stock'], hint: '1 carton (32 oz)' },
+  // Frozen
+  { match:['frozen pea'],                  hint: '1 bag (12 oz)' },
+  { match:['frozen corn'],                 hint: '1 bag (12 oz)' },
+  { match:['frozen green bean'],           hint: '1 bag (12 oz)' },
+  { match:['tater tot'],                   hint: '1 bag (32 oz)' },
+  { match:['frozen edamame'],              hint: '1 bag (12 oz)' },
+  // Plant milk
+  { match:['plant milk','oat milk','almond milk','soy milk','unsweetened plant milk'], hint: '1 carton (32 oz)' },
+  // Tofu
+  { match:['extra-firm tofu','extra firm tofu'], hint: '1 block (14-16 oz)' },
+  { match:['firm tofu','medium-firm tofu'],      hint: '1 block (14-16 oz)' },
+  { match:['silken tofu'],                       hint: '1 block (12 oz)' },
+  // Protein
+  { match:['impossible ground','impossible beef','impossible meat'], hint: '1 pkg (12 oz)' },
+  { match:['plant-based meat','plant based meat'], hint: '1 pkg (16 oz)' },
+  // Nuts & seeds
+  { match:['cashew'],    hint: 'bulk or 8 oz bag' },
+  { match:['peanut butter'], hint: '1 jar (16 oz)' },
+  // Bread
+  { match:['slices bread','bread'],    hint: '1 loaf' },
+  { match:['burger bun'],              hint: '1 pkg (4 ct)' },
+  // Dry rice
+  { match:['brown rice','basmati rice','white rice'], hint: '2 lb bag' },
+  // Vegan mayo
+  { match:['vegan mayo','vegan mayonnaise'], hint: '1 jar (12 oz)' },
+  // Beer
+  { match:['beer'], hint: '1 can or bottle' },
+  // Corn chips
+  { match:['corn chip'], hint: '1 bag (10-13 oz)' },
+];
+
+function getPackageHint(name) {
+  const lower = name.toLowerCase();
+  const ph = PACKAGE_HINTS.find(p => p.match.some(m => lower.includes(m)));
+  return ph ? ph.hint : null;
+}
+
 function openShoppingList(id) {
   const r = recipes.find(rec => rec.id === id);
   if (!r) return;
@@ -819,9 +891,9 @@ function openShoppingList(id) {
   // Combine like ingredients by normalized name
   const combined = {};
   r.ingredients.forEach(ing => {
-    // Strip group parentheticals like "(dry batter)" from name for combining
     const baseName = ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim().toLowerCase();
     if (!baseName) return;
+    if (shouldSkipIngredient(ing.name)) return;
     const key = baseName;
     if (!combined[key]) combined[key] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim(), entries: [] };
     if (ing.qty !== null) combined[key].entries.push({ qty: ing.qty * scale, unit: ing.unit, metric });
@@ -850,7 +922,9 @@ function openShoppingList(id) {
       display = parts.join(' + ');
     }
     const produceHint = sec === 'Fresh Produce' ? getProduceHint(item.name, item.entries[0]?.qty ?? null, item.entries[0]?.unit ?? null) : null;
-    sections[sec].push({ name: item.name, display, produceHint });
+    const packageHint = sec !== 'Fresh Produce' ? getPackageHint(item.name) : null;
+    const hint = produceHint || packageHint || null;
+    sections[sec].push({ name: item.name, display, produceHint: hint });
   });
 
   // Render in store section order
@@ -1321,6 +1395,7 @@ function buildWeeklyShopList() {
     (r.ingredients || []).forEach(ing => {
       const key = ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim().toLowerCase();
       if (!key) return;
+      if (shouldSkipIngredient(ing.name)) return;
       if (!combined[key]) combined[key] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim(), entries: [] };
       if (ing.qty !== null) combined[key].entries.push({ qty: ing.qty * scale, unit: ing.unit });
       else combined[key].entries.push({ qty: null, unit: ing.unit });
@@ -1342,7 +1417,9 @@ function buildWeeklyShopList() {
       display = Object.entries(byUnit).map(([u, q]) => formatQty(q, u || null, 1, false)).join(' + ') || 'to taste';
     }
     const produceHint = sec === 'Fresh Produce' ? getProduceHint(item.name, item.entries[0]?.qty ?? null, item.entries[0]?.unit ?? null) : null;
-    sections[sec].push({ name: item.name, display, produceHint });
+    const packageHint = sec !== 'Fresh Produce' ? getPackageHint(item.name) : null;
+    const hint = produceHint || packageHint || null;
+    sections[sec].push({ name: item.name, display, produceHint: hint });
   });
 
   // Share text
