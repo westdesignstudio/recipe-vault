@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>West Family Recipe Vault</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -267,11 +266,65 @@ function formatQty(qty, unit, scale, metric) {
   return displayUnit ? `${display} ${displayUnit}` : display;
 }
 
-// ── Supabase ──────────────────────────────────────────────
+// ── Supabase (raw fetch — no SDK) ─────────────────────────
 const SB_URL = 'https://fmjhhtwnjfwsecvingyi.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtamhodHduamZ3c2VjdmluZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjM3NDUsImV4cCI6MjA5NTE5OTc0NX0.b_qLaSkIlpwWPbk_fHSmPKuqSbbUWkddgS7Cr4s0MhI';
-const { createClient } = supabase;
-const db = createClient(SB_URL, SB_KEY);
+
+const SB_HEADERS = {
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+const db = {
+  from: (table) => ({
+    select: (cols='*') => ({
+      order: (col, opts={}) => ({
+        async then(resolve, reject) {
+          try {
+            const asc = opts.ascending !== false;
+            const res = await fetch(`${SB_URL}/rest/v1/${table}?select=${cols}&order=${col}.${asc?'asc':'desc'}`, { headers: SB_HEADERS });
+            const data = await res.json();
+            resolve({ data: Array.isArray(data) ? data : [], error: res.ok ? null : data });
+          } catch(e) { resolve({ data: [], error: e }); }
+        }
+      }),
+      eq: (col, val) => ({
+        maybeSingle: async () => {
+          try {
+            const res = await fetch(`${SB_URL}/rest/v1/${table}?select=${cols}&${col}=eq.${encodeURIComponent(val)}&limit=1`, { headers: SB_HEADERS });
+            const data = await res.json();
+            const row = Array.isArray(data) ? data[0] : null;
+            return { data: row || null, error: res.ok ? null : data };
+          } catch(e) { return { data: null, error: e }; }
+        }
+      })
+    }),
+    upsert: async (row, opts={}) => {
+      try {
+        const conflict = opts.onConflict ? `?on_conflict=${opts.onConflict}` : '';
+        const res = await fetch(`${SB_URL}/rest/v1/${table}${conflict}`, {
+          method: 'POST',
+          headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(row)
+        });
+        const data = await res.json();
+        return { data, error: res.ok ? null : data };
+      } catch(e) { return { data: null, error: e }; }
+    },
+    delete: () => ({
+      eq: async (col, val) => {
+        try {
+          const res = await fetch(`${SB_URL}/rest/v1/${table}?${col}=eq.${encodeURIComponent(val)}`, {
+            method: 'DELETE', headers: SB_HEADERS
+          });
+          return { error: res.ok ? null : await res.json() };
+        } catch(e) { return { error: e }; }
+      }
+    })
+  })
+};
 
 function dbToRecipe(row) {
   return {
