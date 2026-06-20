@@ -717,21 +717,72 @@ function renderIngredients(ingredients, scale, metric) {
 }
 
 // Store aisle ordering for shopping list
+// Section assignment uses two-tier matching:
+// 1. EXACT_PHRASES checked first (compound ingredients that would otherwise misfire)
+// 2. STORE_SECTIONS with ordered sections — Canned before Produce so "tomato paste" hits Canned first
+const EXACT_PHRASES = [
+  // Canned & Jarred — must come before produce keywords catch them
+  { phrases: ['tomato paste','crushed tomato','diced tomato','tomato sauce','stewed tomato'], label: 'Canned & Jarred' },
+  { phrases: ['coconut milk','coconut cream'], label: 'Canned & Jarred' },
+  { phrases: ['chili bean','black bean','kidney bean','pinto bean','cannellini bean','white bean','garbanzo','chickpea'], label: 'Canned & Jarred' },
+  { phrases: ['heart of palm'], label: 'Canned & Jarred' },
+  { phrases: ['vegetable broth','veggie broth','vegetable stock','chicken broth','beef broth'], label: 'Canned & Jarred' },
+  { phrases: ['tomato juice'], label: 'Canned & Jarred' },
+  { phrases: ['caper'], label: 'Canned & Jarred' },
+  { phrases: ['pickle','dill pickle'], label: 'Canned & Jarred' },
+  { phrases: ['olive'], label: 'Canned & Jarred' },
+  { phrases: ['artichoke'], label: 'Canned & Jarred' },
+  // Frozen — before generic keywords
+  { phrases: ['frozen pea','frozen corn','frozen green bean','frozen edamame','frozen spinach','tater tot','frozen vegetable'], label: 'Frozen' },
+  // Sauces — before oil/vinegar catch generic terms
+  { phrases: ['soy sauce','tamari','worcestershire','chili garlic sauce','hot sauce','sriracha','hoisin','teriyaki','fish sauce','oyster sauce'], label: 'Oils, Vinegars & Sauces' },
+  { phrases: ['apple cider vinegar','rice vinegar','balsamic vinegar','white vinegar','red wine vinegar'], label: 'Oils, Vinegars & Sauces' },
+  { phrases: ['maple syrup','agave','simple syrup'], label: 'Oils, Vinegars & Sauces' },
+  { phrases: ['sesame oil','toasted sesame oil','canola oil','avocado oil','vegetable oil','olive oil','coconut oil','neutral oil'], label: 'Oils, Vinegars & Sauces' },
+  { phrases: ['dijon mustard','yellow mustard','whole grain mustard'], label: 'Oils, Vinegars & Sauces' },
+  { phrases: ['vegan mayo','vegan mayonnaise'], label: 'Oils, Vinegars & Sauces' },
+  { phrases: ['peanut butter','almond butter','tahini'], label: 'Nuts, Seeds & Dried Fruit' },
+  // Refrigerated proteins — before generic milk catches plant milk
+  { phrases: ['plant-based meat','plant based meat','impossible ground','impossible beef','beyond beef','beyond meat'], label: 'Refrigerated' },
+  { phrases: ['extra-firm tofu','extra firm tofu','firm tofu','medium-firm tofu','silken tofu','soft tofu'], label: 'Refrigerated' },
+  { phrases: ['tempeh'], label: 'Refrigerated' },
+  { phrases: ['plant milk','oat milk','almond milk','soy milk','unsweetened plant milk','cashew milk'], label: 'Refrigerated' },
+  { phrases: ['vegan butter','plant butter'], label: 'Refrigerated' },
+  // Dry goods
+  { phrases: ['nutritional yeast'], label: 'Dry Goods & Baking' },
+  { phrases: ['brown sugar','maple sugar','powdered sugar','cane sugar'], label: 'Dry Goods & Baking' },
+  { phrases: ['beef bouillon','vegetable bouillon','bouillon cube','bouillon'], label: 'Dry Goods & Baking' },
+  { phrases: ['panko','breadcrumb'], label: 'Dry Goods & Baking' },
+  { phrases: ['brown rice','basmati rice','jasmine rice','white rice','wild rice'], label: 'Dry Goods & Baking' },
+  { phrases: ['corn chip'], label: 'Dry Goods & Baking' },
+  // Produce — whole fresh items
+  { phrases: ['green onion','green chile','jalapeño','bell pepper','green pepper','red pepper','yellow pepper'], label: 'Fresh Produce' },
+  { phrases: ['cremini mushroom','portobello','shiitake','white mushroom'], label: 'Fresh Produce' },
+  { phrases: ['bok choy','baby bok choy'], label: 'Fresh Produce' },
+  // Beverage
+  { phrases: ['beer','lager','ale'], label: 'Beverages' },
+];
+
 const STORE_SECTIONS = [
-  { label: 'Fresh Produce', keys: ['produce','vegetable','vegetables','fruit','fruits','fresh','herb','herbs','onion','garlic','lemon','lime','tomato','avocado','jalapen','cilantro','banana','apple','ginger','lettuce','spinach','kale','mushroom','pepper','chive','chives','shallot','scallion','potato','sweet potato','zucchini','squash','carrot','celery','cucumber','broccoli','cauliflower','jackfruit'] },
-  { label: 'Refrigerated', keys: ['milk','plant milk','oat milk','almond milk','soy milk','butter','vegan butter','cream','yogurt','egg','eggs','cheese','tofu','tempeh','meat','plant-based meat','beyond','impossible','mince','sausage','juice','orange juice'] },
-  { label: 'Meat & Seafood', keys: ['chicken','beef','pork','turkey','lamb','salmon','shrimp','tuna','steak','ground beef','ground turkey'] },
-  { label: 'Canned & Jarred', keys: ['canned','crushed tomatoes','diced tomatoes','tomato paste','tomato sauce','chickpeas','black beans','kidney beans','lentils','coconut milk','broth','stock','pickle','pickles','olive','olives','salsa','jam','jelly','syrup'] },
-  { label: 'Dry Goods & Baking', keys: ['flour','cornstarch','baking powder','baking soda','sugar','brown sugar','powdered sugar','oat','oats','rice','pasta','bread','panko','breadcrumb','cornmeal','quinoa','lentil','noodle','cracker','cereal','cocoa','chocolate chip','vanilla','yeast','salt','pepper','spice','seasoning','cumin','paprika','smoked paprika','cayenne','turmeric','cinnamon','oregano','thyme','basil','chili','curry','garam masala','garlic powder','onion powder','white pepper','black pepper'] },
-  { label: 'Oils, Vinegars & Sauces', keys: ['oil','olive oil','vegetable oil','canola oil','coconut oil','vinegar','apple cider vinegar','soy sauce','hot sauce','worcestershire','sriracha','mustard','ketchup','mayo','tahini','miso','fish sauce','oyster sauce','hoisin','teriyaki'] },
-  { label: 'Nuts, Seeds & Dried Fruit', keys: ['nut','nuts','almond','almonds','cashew','cashews','walnut','walnuts','peanut','peanuts','pecan','pecans','pistachio','pine nut','seed','seeds','chia','flax','sesame','sunflower','pumpkin seed','raisin','cranberry','dried fruit'] },
-  { label: 'Bread & Bakery', keys: ['bun','buns','burger bun','bread','roll','rolls','tortilla','pita','naan','bagel','english muffin'] },
-  { label: 'Frozen', keys: ['frozen','ice cream'] },
+  { label: 'Fresh Produce', keys: ['onion','shallot','scallion','garlic','lemon','lime','avocado','cilantro','parsley','basil leaf','fresh herb','ginger root','fresh ginger','lettuce','spinach','kale','arugula','mushroom','potato','sweet potato','zucchini','squash','carrot','celery','cucumber','broccoli','cauliflower','jackfruit','tomato','apple','banana','mango','corn on the cob','pea pod','fresh pea','leek','fennel','radish','beet','turnip','asparagus','artichoke heart fresh'] },
+  { label: 'Refrigerated', keys: ['tofu','tempeh','meat','mince','sausage','orange juice','cream cheese','vegan cream','yogurt','oat cream'] },
+  { label: 'Canned & Jarred', keys: ['can ','canned','jar','jarred','relish','salsa','jam','jelly','applesauce','tahini'] },
+  { label: 'Frozen', keys: ['frozen','ice cream','edamame'] },
+  { label: 'Dry Goods & Baking', keys: ['flour','cornstarch','baking powder','baking soda','sugar','oat','oats','rice','pasta','noodle','bread crumb','cornmeal','quinoa','cracker','cereal','cocoa','chocolate chip','vanilla extract','yeast','tapioca','arrowroot','lentil dry','split pea','dried lentil'] },
+  { label: 'Oils, Vinegars & Sauces', keys: ['oil','vinegar','sauce','mustard','ketchup','miso','syrup','glaze'] },
+  { label: 'Nuts, Seeds & Dried Fruit', keys: ['nut','almond','cashew','walnut','peanut','pecan','pistachio','pine nut','hazelnut','seed','chia','flax','sesame seed','sunflower seed','pumpkin seed','raisin','cranberry','dried apricot','dried mango','coconut flake','shredded coconut'] },
+  { label: 'Bread & Bakery', keys: ['bread','bun','roll','tortilla','pita','naan','bagel','english muffin','wrap','lavash'] },
+  { label: 'Beverages', keys: ['beer','wine','juice','broth','stock','tea','coffee','soda','sparkling water'] },
   { label: 'Other', keys: [] }
 ];
 
 function assignSection(name) {
   const lower = name.toLowerCase();
+  // 1. Check exact phrases first (handles compound ingredients)
+  for (const ep of EXACT_PHRASES) {
+    if (ep.phrases.some(p => lower.includes(p))) return ep.label;
+  }
+  // 2. Fall through to general section keywords
   for (const section of STORE_SECTIONS) {
     if (section.keys.some(k => lower.includes(k))) return section.label;
   }
