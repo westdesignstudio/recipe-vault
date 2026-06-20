@@ -132,6 +132,30 @@ h1 i{font-size:22px;opacity:.5}
 .form-row .field{flex:1}
 .empty{text-align:center;padding:3.5rem;color:var(--text-faint);font-size:15px}
 .hint{font-size:11px;color:var(--text-faint);margin-top:5px}
+/* Commit + history */
+.commit-btn{background:#181818;color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:'Inter',inherit;cursor:pointer;display:flex;align-items:center;gap:7px;transition:opacity .15s}
+.commit-btn:hover{opacity:.82}
+.commit-btn.committed{background:#0A5C2E;cursor:default}
+.history-panel{margin-top:1.5rem;border-top:1px solid var(--border-light);padding-top:1.25rem}
+.history-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:1rem}
+.history-week{border:1px solid var(--border-light);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.history-week-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;background:var(--bg-card)}
+.history-week-header:hover{background:var(--bg-muted)}
+.history-week-label{font-size:13px;font-weight:500}
+.history-week-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:10px}
+.history-week-badge.committed{background:#D6F0E0;color:#0A5C2E}
+.history-week-badge.draft{background:var(--bg-muted);color:var(--text-faint)}
+.history-week-body{padding:10px 14px;border-top:1px solid var(--border-light);display:none;background:var(--bg-card)}
+.history-week-body.open{display:block}
+.history-meal-row{font-size:13px;padding:4px 0;display:flex;gap:8px}
+.history-meal-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);min-width:48px;padding-top:2px}
+/* Cook timeline */
+.cook-timeline{list-style:none;margin-top:.5rem}
+.cook-timeline li{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border-light);font-size:13px}
+.cook-timeline li:last-child{border:none}
+.cook-timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.cook-timeline-date{color:var(--text);font-weight:500}
+.cook-timeline-note{color:var(--text-faint);font-size:11px}
 /* Search */
 .filter-search-wrap{position:relative;margin-bottom:10px}
 .filter-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:14px}
@@ -193,10 +217,11 @@ h1 i{font-size:22px;opacity:.5}
 <div class="app">
   <div class="header">
     <h1><i class="ti ti-book-2"></i> West Family Recipe Vault</h1>
-    <div style="display:flex;gap:8px"><button class="btn" onclick="openPlanner()"><i class="ti ti-calendar-week"></i> Meal planner</button><button class="btn primary" onclick="openAdd()"><i class="ti ti-plus"></i> Add recipe</button></div>
+    <div style="display:flex;gap:8px"><button class="btn" onclick="openHistory()"><i class="ti ti-clock-history"></i> History</button><button class="btn" onclick="openPlanner()"><i class="ti ti-calendar-week"></i> Meal planner</button><button class="btn primary" onclick="openAdd()"><i class="ti ti-plus"></i> Add recipe</button></div>
   </div>
   <div class="filters" id="filters"></div>
   <div id="planner-area"></div>
+  <div id="history-area"></div>
   <div id="add-form-area"></div>
   <div class="grid" id="grid"></div>
   <div id="modal-area"></div>
@@ -590,6 +615,118 @@ async function planThisWeek(recipeId, slotKey) {
   }
   renderGrid();
 }
+
+async function commitPlan() {
+  const now = new Date().toISOString();
+  const weekStart = plannerWeekStart;
+  // Save committed state
+  await db.from('meal_plans').upsert({
+    week_start: weekStart,
+    lunches: [],
+    dinners: [],
+    plan: plannerPlan,
+    committed: true,
+    committed_at: now,
+    updated_at: now
+  }, { onConflict: 'week_start' });
+  plannerPlan._committed = true;
+  plannerPlan._committedAt = now;
+  // Auto-log cook date on each recipe in the plan
+  const cookDate = new Date(weekStart + 'T00:00:00').toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+  const recipeIds = [
+    plannerPlan.lunch?.mainId,
+    plannerPlan.lunch?.sideId,
+    plannerPlan.dinner?.mainId,
+    plannerPlan.dinner?.sideId,
+    ...(plannerPlan.kidsLunch?.enabled ? [plannerPlan.kidsLunch?.mainId, plannerPlan.kidsLunch?.sideId] : [])
+  ].filter(Boolean);
+  const uniqueIds = [...new Set(recipeIds)];
+  for (const id of uniqueIds) {
+    const r = recipes.find(rec => rec.id === id);
+    if (!r) continue;
+    if (!r.cookedDates) r.cookedDates = [];
+    if (!r.cookedDates.includes(cookDate)) {
+      r.cookedDates.push(cookDate);
+      await save(r);
+    }
+  }
+  renderPlanner();
+  renderGrid();
+}
+
+async function uncommitPlan() {
+  const now = new Date().toISOString();
+  await db.from('meal_plans').upsert({
+    week_start: plannerWeekStart,
+    lunches: [],
+    dinners: [],
+    plan: plannerPlan,
+    committed: false,
+    committed_at: null,
+    updated_at: now
+  }, { onConflict: 'week_start' });
+  plannerPlan._committed = false;
+  plannerPlan._committedAt = null;
+  renderPlanner();
+}
+
+let showHistory = false;
+async function openHistory() {
+  showHistory = !showHistory;
+  const el = document.getElementById('history-area');
+  if (!showHistory) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="padding:1.5rem;color:var(--text-faint);font-size:13px">Loading history...</div>';
+  // Fetch all plans ordered by week desc
+  const res = await fetch(
+    SB_URL + '/rest/v1/meal_plans?select=*&order=week_start.desc&limit=52',
+    { headers: SB_HEADERS }
+  );
+  const plans = await res.json();
+  if (!plans.length) {
+    el.innerHTML = '<div style="padding:1.5rem;color:var(--text-faint);font-size:13px">No meal plans recorded yet.</div>';
+    return;
+  }
+  renderHistory(plans);
+}
+
+function renderHistory(plans) {
+  const el = document.getElementById('history-area');
+  const rows = plans.map((p, i) => {
+    const plan = p.plan || {};
+    const lunch = plan.lunch?.mainId ? recipes.find(r=>r.id===plan.lunch.mainId)?.title : null;
+    const lunchSide = plan.lunch?.sideId ? recipes.find(r=>r.id===plan.lunch.sideId)?.title : null;
+    const dinner = plan.dinner?.mainId ? recipes.find(r=>r.id===plan.dinner.mainId)?.title : null;
+    const dinnerSide = plan.dinner?.sideId ? recipes.find(r=>r.id===plan.dinner.sideId)?.title : null;
+    const kidsLunch = plan.kidsLunch?.enabled && plan.kidsLunch?.mainId ? recipes.find(r=>r.id===plan.kidsLunch.mainId)?.title : null;
+    const hasContent = lunch || dinner || kidsLunch;
+    if (!hasContent) return '';
+    return \`<div class="history-week">
+      <div class="history-week-header" onclick="toggleHistoryWeek(this)">
+        <span class="history-week-label">\${weekLabel(p.week_start)}</span>
+        <span class="history-week-badge \${p.committed ? 'committed' : 'draft'}">\${p.committed ? 'Committed' : 'Draft'}</span>
+      </div>
+      <div class="history-week-body">
+        \${lunch ? \`<div class="history-meal-row"><span class="history-meal-label">Lunch</span><span>\${escHtml(lunch)}\${lunchSide ? ' + ' + escHtml(lunchSide) : ''}</span></div>\` : ''}
+        \${kidsLunch ? \`<div class="history-meal-row"><span class="history-meal-label">Kids</span><span>\${escHtml(kidsLunch)}</span></div>\` : ''}
+        \${dinner ? \`<div class="history-meal-row"><span class="history-meal-label">Dinner</span><span>\${escHtml(dinner)}\${dinnerSide ? ' + ' + escHtml(dinnerSide) : ''}</span></div>\` : ''}
+        \${p.committed_at ? \`<div style="font-size:11px;color:var(--text-faint);margin-top:8px">Committed \${new Date(p.committed_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>\` : ''}
+      </div>
+    </div>\`;
+  }).join('');
+  el.innerHTML = \`<div class="planner" style="margin-bottom:1.75rem">
+    <div class="planner-header" style="margin-bottom:1.25rem">
+      <div class="planner-title"><i class="ti ti-clock-history" style="font-size:18px;opacity:.5;margin-right:6px"></i>Plan History</div>
+      <button class="btn" onclick="openHistory()">Close</button>
+    </div>
+    \${rows || '<div style="color:var(--text-faint);font-size:13px">No completed plans yet.</div>'}
+  </div>\`;
+}
+
+function toggleHistoryWeek(header) {
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
 
 function openModal(id) {
   openRecipe = recipes.find(r => r.id === id);
@@ -1274,6 +1411,8 @@ async function openPlanner() {
   if (!showPlanner) { document.getElementById('planner-area').innerHTML = ''; return; }
   const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
   plannerPlan = normalizePlan(data);
+  plannerPlan._committed = data?.committed || false;
+  plannerPlan._committedAt = data?.committed_at || null;
   renderPlanner();
 }
 
@@ -1287,6 +1426,8 @@ async function shiftPlannerWeek(dir) {
   plannerPlan = emptyPlan();
   const { data } = await db.from('meal_plans').select('*').eq('week_start', plannerWeekStart).maybeSingle();
   plannerPlan = normalizePlan(data);
+  plannerPlan._committed = data?.committed || false;
+  plannerPlan._committedAt = data?.committed_at || null;
   renderPlanner();
 }
 
@@ -1433,9 +1574,17 @@ function renderPlanner() {
         </div>`}
       ${renderMealRow('dinner', 'Dinner', 'dinner', 'Whole family')}
 
-      <div class="planner-actions">
-        <button class="btn primary" onclick="buildWeeklyShopList()"><i class="ti ti-shopping-cart"></i> Build shopping list</button>
-        <button class="btn" onclick="openPlanner()">Close</button>
+      <div class="planner-actions" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="buildWeeklyShopList()"><i class="ti ti-shopping-cart"></i> Shopping list</button>
+          <button class="btn" onclick="openPlanner()">Close</button>
+        </div>
+        ${plannerPlan._committed
+          ? `<div style="display:flex;align-items:center;gap:8px">
+               <span style="font-size:12px;color:#0A5C2E"><i class="ti ti-circle-check"></i> Committed ${plannerPlan._committedAt ? new Date(plannerPlan._committedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''}</span>
+               <button class="btn" style="font-size:12px" onclick="uncommitPlan()">Undo</button>
+             </div>`
+          : `<button class="commit-btn" onclick="commitPlan()"><i class="ti ti-circle-check"></i> Commit this week</button>`}
       </div>
       <div id="planner-shop"></div>
     </div>`;
