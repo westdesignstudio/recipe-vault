@@ -279,7 +279,7 @@ function evalFraction(s) {
 
 function parseIngredients(raw) {
   return raw.split('\n').filter(l => l.trim()).map(line => {
-    line = line.trim().replace(/^[--*]\s*/, '');
+    line = line.trim().replace(/^[-*]\s*/, '');
     const m = line.match(/^([\d\/\s\.\-]+)\s*(cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|oz|ounce|ounces|lb|lbs|pound|pounds|fl oz|pt|pint|pints|qt|quart|quarts|gal|gallon|g|gram|grams|kg|kilogram|ml|l|liter|liters)?\s*(.+)?$/i);
     if (m) {
       const qty = m[1] ? evalFraction(m[1].trim()) : null;
