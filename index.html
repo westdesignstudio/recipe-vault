@@ -132,6 +132,27 @@ h1 i{font-size:22px;opacity:.5}
 .form-row .field{flex:1}
 .empty{text-align:center;padding:3.5rem;color:var(--text-faint);font-size:15px}
 .hint{font-size:11px;color:var(--text-faint);margin-top:5px}
+/* Search */
+.filter-search-wrap{position:relative;margin-bottom:10px}
+.filter-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:14px}
+.filter-search{width:100%;padding:8px 32px 8px 32px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text);font-size:14px;font-family:'Inter',inherit;outline:none}
+.filter-search:focus{border-color:#999}
+.filter-search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-faint);font-size:13px;padding:4px}
+/* Filter rows */
+.filter-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.filter-row-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);min-width:52px;flex-shrink:0}
+.filter-pills{display:flex;gap:6px;flex-wrap:wrap}
+/* Card plan button */
+.card-plan-row{margin-top:10px;border-top:1px solid var(--border-light);padding-top:8px}
+.add-to-week-btn{background:none;border:none;font-size:12px;color:var(--text-faint);cursor:pointer;padding:0;font-family:'Inter',inherit;display:flex;align-items:center;gap:5px;transition:color .15s}
+.add-to-week-btn:hover{color:var(--text)}
+.plan-popover{display:flex;flex-direction:column;gap:4px}
+.plan-popover-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:2px}
+.plan-pop-btn{background:var(--bg-muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--text);font-family:'Inter',inherit;text-align:left;display:flex;align-items:center;gap:6px;transition:background .15s}
+.plan-pop-btn:hover{background:var(--bg-hover)}
+/* Planned badge */
+.planned-badge{font-size:10px;font-weight:600;color:#0A5C2E;background:#D6F0E0;border-radius:10px;padding:2px 8px;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:3px}
+
 /* Planner */
 .planner{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);padding:1.6rem;margin-bottom:1.75rem;box-shadow:0 2px 12px rgba(0,0,0,.04)}
 .planner-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:10px}
@@ -341,7 +362,10 @@ function dbToRecipe(row) {
     cookedDates: row.cooked_dates || [],
     ratings: row.ratings || {},
     comments: row.comments || [],
-    nutrition: row.nutrition || {}
+    nutrition: row.nutrition || {},
+    cuisine: row.cuisine || null,
+    method: row.method || [],
+    totalTime: row.total_time || null
   };
 }
 
@@ -360,7 +384,10 @@ function recipeToDb(r) {
     cooked_dates: r.cookedDates || [],
     ratings: r.ratings || {},
     comments: r.comments || [],
-    nutrition: r.nutrition || {}
+    nutrition: r.nutrition || {},
+    cuisine: r.cuisine || null,
+    method: r.method || [],
+    total_time: r.totalTime || null
   };
 }
 
@@ -369,9 +396,11 @@ async function save(recipe) {
 }
 
 let recipes = [];
-let activeCategory = 'all';
+let activeFilters = { meal: 'all', cuisine: null, method: null, time: null, search: '' };
 let showAdd = false;
 let openRecipe = null;
+let planPopoverOpen = null; // recipe id with open popover
+let currentWeekPlan = {}; // { lunch: id, dinner: id, kidsLunch: id } for badge display
 
 async function init() {
   document.getElementById('grid').innerHTML = '<div class="empty" style="grid-column:1/-1"><i class="ti ti-loader" style="font-size:28px;display:block;margin-bottom:.5rem"></i>Loading recipes...</div>';
@@ -381,6 +410,16 @@ async function init() {
     return;
   }
   recipes = data.map(dbToRecipe);
+  // Load current week plan for card badges
+  const sunday = getSundayStr();
+  const { data: planData } = await db.from('meal_plans').select('*').eq('week_start', sunday).maybeSingle();
+  if (planData?.plan) {
+    currentWeekPlan = {
+      lunch: planData.plan.lunch?.mainId || null,
+      dinner: planData.plan.dinner?.mainId || null,
+      kidsLunch: planData.plan.kidsLunch?.mainId || null
+    };
+  }
   renderFilters();
   renderGrid();
 }
@@ -390,24 +429,93 @@ function hostName(url) {
   catch(e) { return url; }
 }
 
+const CUISINES = ['American','Mexican','Italian','Asian','Mediterranean','Indian','Middle Eastern'];
+const METHODS = ['One Pot','Sheet Pan','Slow Cooker','Air Fryer','No Cook','Meal Prep'];
+const TIMES = [{label:'Under 30 min',max:30},{label:'Under 1 hour',max:60},{label:'Weekend',min:60}];
+
 function renderFilters() {
   const el = document.getElementById('filters');
-  const counts = {};
-  CATEGORIES.forEach(c => { counts[c] = c === 'all' ? recipes.length : recipes.filter(r => r.category === c).length; });
-  el.innerHTML =
-    `<div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${CATEGORIES.filter(c => c === 'all' || counts[c] > 0).map(c => `
-          <button class="pill ${activeCategory === c ? 'active' : ''}" onclick="setCategory('${c}')">
-            ${c === 'all' ? 'All' : cap(c)}${c !== 'all' ? ' (' + counts[c] + ')' : ''}
-          </button>`).join('')}
+  const cuisinesInVault = CUISINES.filter(c => recipes.some(r => r.cuisine === c));
+  const methodsInVault = METHODS.filter(m => recipes.some(r => r.method && r.method.includes(m)));
+  const hasTime = recipes.some(r => r.totalTime);
+
+  el.innerHTML = `
+    <div class="filter-search-wrap">
+      <i class="ti ti-search filter-search-icon"></i>
+      <input class="filter-search" type="text" placeholder="Search recipes..." value="${escHtml(activeFilters.search)}"
+        oninput="setFilter('search',this.value)">
+      ${activeFilters.search ? `<button class="filter-search-clear" onclick="setFilter('search','')"><i class="ti ti-x"></i></button>` : ''}
+    </div>
+    <div class="filter-row">
+      <span class="filter-row-label">Meal</span>
+      <div class="filter-pills">
+        ${['all','breakfast','lunch','dinner','side','appetizer','dessert','drink'].filter(c => c==='all'||recipes.some(r=>r.category===c)).map(c =>
+          `<button class="pill ${activeFilters.meal===c?'active':''}" onclick="setFilter('meal','${c}')">${c==='all'?'All':cap(c)}</button>`
+        ).join('')}
       </div>
-    </div>`;
+    </div>
+    ${cuisinesInVault.length ? `<div class="filter-row">
+      <span class="filter-row-label">Cuisine</span>
+      <div class="filter-pills">
+        ${cuisinesInVault.map(c =>
+          `<button class="pill ${activeFilters.cuisine===c?'active':''}" onclick="setFilter('cuisine','${c}')">${c}</button>`
+        ).join('')}
+      </div>
+    </div>` : ''}
+    ${methodsInVault.length ? `<div class="filter-row">
+      <span class="filter-row-label">Method</span>
+      <div class="filter-pills">
+        ${methodsInVault.map(m =>
+          `<button class="pill ${activeFilters.method===m?'active':''}" onclick="setFilter('method','${m}')">${m}</button>`
+        ).join('')}
+      </div>
+    </div>` : ''}
+    ${hasTime ? `<div class="filter-row">
+      <span class="filter-row-label">Time</span>
+      <div class="filter-pills">
+        ${TIMES.map(t =>
+          `<button class="pill ${activeFilters.time===t.label?'active':''}" onclick="setFilter('time','${t.label}')">${t.label}</button>`
+        ).join('')}
+      </div>
+    </div>` : ''}
+  `;
 }
 
-function setCategory(c) { activeCategory = c; renderFilters(); renderGrid(); }
+function setFilter(key, val) {
+  // Toggle off if already active, except search and meal=all
+  if (key === 'search') { activeFilters.search = val; }
+  else if (key === 'meal') { activeFilters.meal = val; }
+  else { activeFilters[key] = activeFilters[key] === val ? null : val; }
+  renderFilters();
+  renderGrid();
+}
+
+function applyFilters(list) {
+  return list.filter(r => {
+    if (activeFilters.meal !== 'all' && r.category !== activeFilters.meal) return false;
+    if (activeFilters.cuisine && r.cuisine !== activeFilters.cuisine) return false;
+    if (activeFilters.method && !(r.method||[]).includes(activeFilters.method)) return false;
+    if (activeFilters.time) {
+      const t = TIMES.find(t => t.label === activeFilters.time);
+      if (t && r.totalTime) {
+        if (t.max && r.totalTime > t.max) return false;
+        if (t.min && r.totalTime < t.min) return false;
+      }
+    }
+    if (activeFilters.search) {
+      const q = activeFilters.search.toLowerCase();
+      if (!r.title.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function isPlannedThisWeek(id) {
+  return Object.values(currentWeekPlan).includes(id);
+}
 
 function renderGrid() {
-  let filtered = activeCategory === 'all' ? recipes : recipes.filter(r => r.category === activeCategory);
+  let filtered = applyFilters(recipes);
   const el = document.getElementById('grid');
   if (!filtered.length) {
     el.innerHTML = '<div class="empty"><i class="ti ti-bowl-chopsticks" style="font-size:36px;display:block;margin-bottom:.5rem"></i>No recipes in this category yet</div>';
@@ -419,15 +527,68 @@ function renderGrid() {
         ${r.image ? `<img src="${r.image}" alt="${escHtml(r.title)}" onerror="this.parentNode.innerHTML='<i class=\\'ti ti-bowl-chopsticks\\'></i>'" loading="lazy">` : '<i class="ti ti-bowl-chopsticks"></i>'}
       </div>
       <div class="card-body">
-        <h3>${escHtml(r.title)}</h3>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <h3>${escHtml(r.title)}</h3>
+          ${isPlannedThisWeek(r.id) ? `<span class="planned-badge"><i class="ti ti-check"></i> This week</span>` : ''}
+        </div>
         ${r.url ? `<div class="source">${hostName(r.url)}</div>` : ''}
         <div class="card-meta">
           <span class="tag tag-${r.category || 'default'}">${cap(r.category || 'other')}</span>
-          <span style="font-size:12px;color:#999"><i class="ti ti-users" style="font-size:12px;vertical-align:-1px"></i> ${r.baseServings}</span>
+          ${r.cuisine ? `<span class="tag tag-default">${r.cuisine}</span>` : ''}
+          ${r.totalTime ? `<span style="font-size:11px;color:var(--text-faint)"><i class="ti ti-clock" style="font-size:11px;vertical-align:-1px"></i> ${r.totalTime}m</span>` : ''}
         </div>
-        ${(r.cookedDates&&r.cookedDates.length) ? `<div style="font-size:11px;color:#aaa;padding:0 14px 10px;margin-top:-4px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> ${r.cookedDates[r.cookedDates.length-1]}</div>` : ''}
+        ${(r.cookedDates&&r.cookedDates.length) ? `<div style="font-size:11px;color:#aaa;margin-top:4px"><i class="ti ti-calendar" style="font-size:11px;vertical-align:-1px"></i> ${r.cookedDates[r.cookedDates.length-1]}</div>` : ''}
+        <div class="card-plan-row" onclick="event.stopPropagation()">
+          ${planPopoverOpen === r.id ? `
+            <div class="plan-popover">
+              <div class="plan-popover-label">Add to this week as:</div>
+              <button class="plan-pop-btn" onclick="planThisWeek(${r.id},'lunch')"><i class="ti ti-sun"></i> Lunch</button>
+              <button class="plan-pop-btn" onclick="planThisWeek(${r.id},'dinner')"><i class="ti ti-moon"></i> Dinner</button>
+              <button class="plan-pop-btn" onclick="planThisWeek(${r.id},'kidsLunch')"><i class="ti ti-star"></i> Kids Lunch</button>
+              <button class="plan-pop-btn" style="color:var(--text-faint)" onclick="closePlanPopover()">Cancel</button>
+            </div>` : `
+            <button class="add-to-week-btn" onclick="openPlanPopover(${r.id})">
+              <i class="ti ti-calendar-plus"></i> Add to this week
+            </button>`}
+        </div>
       </div>
     </div>`).join('');
+}
+
+
+function openPlanPopover(id) {
+  planPopoverOpen = planPopoverOpen === id ? null : id;
+  renderGrid();
+}
+
+function closePlanPopover() {
+  planPopoverOpen = null;
+  renderGrid();
+}
+
+async function planThisWeek(recipeId, slotKey) {
+  planPopoverOpen = null;
+  // Load or init current week plan
+  const sunday = getSundayStr();
+  const { data } = await db.from('meal_plans').select('*').eq('week_start', sunday).maybeSingle();
+  const plan = (data?.plan && Object.keys(data.plan).length) ? data.plan : emptyPlan();
+  plan[slotKey].mainId = recipeId;
+  await db.from('meal_plans').upsert({
+    week_start: sunday,
+    lunches: [],
+    dinners: [],
+    plan,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'week_start' });
+  // Update local badge state
+  currentWeekPlan[slotKey] = recipeId;
+  // Sync to planner if open
+  if (showPlanner) {
+    plannerPlan = plan;
+    plannerWeekStart = sunday;
+    renderPlanner();
+  }
+  renderGrid();
 }
 
 function openModal(id) {
@@ -743,6 +904,25 @@ function renderAddForm() {
           ${[['Calories','calories'],['Protein (g)','protein'],['Carbs (g)','carbs'],['Fat (g)','fat'],['Fiber (g)','fiber'],['Sugar (g)','sugar'],['Sodium (mg)','sodium']].map(([label,key]) =>
             `<div><label style="font-size:11px;color:var(--text-faint)">${label}</label><input type="number" id="new-nut-${key}" min="0" step="0.1" style="padding:6px 8px"></div>`
           ).join('')}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Cuisine</label>
+          <select id="new-cuisine" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text);font-size:14px;font-family:'Inter',inherit;outline:none">
+            <option value="">-- none --</option>
+            ${CUISINES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Total time (minutes)</label>
+          <input type="number" id="new-time" min="5" step="5" placeholder="45">
+        </div>
+      </div>
+      <div class="field">
+        <label>Method</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          ${METHODS.map(m => `<label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="new-method-${m.replace(/\s+/g,'-')}" value="${m}"> ${m}</label>`).join('')}
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:.25rem">
