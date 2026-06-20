@@ -132,6 +132,41 @@ h1 i{font-size:22px;opacity:.5}
 .form-row .field{flex:1}
 .empty{text-align:center;padding:3.5rem;color:var(--text-faint);font-size:15px}
 .hint{font-size:11px;color:var(--text-faint);margin-top:5px}
+/* Tab nav */
+.tab-nav{display:flex;gap:0;margin-bottom:1.75rem;border-bottom:1px solid var(--border-light)}
+.tab-btn{background:none;border:none;padding:10px 20px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;transition:all .15s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--accent)}
+/* Home week panel */
+.home-week-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:12px}
+.home-week-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:500}
+.home-week-sub{font-size:12px;color:var(--text-faint);margin-top:2px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.home-meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:2rem}
+.home-meal-card{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .15s}
+.home-meal-card:hover{border-color:#c8bfb5;box-shadow:0 4px 18px rgba(0,0,0,.07);transform:translateY(-1px)}
+.home-meal-card.empty{cursor:default;border-style:dashed}
+.home-meal-card.empty:hover{transform:none;box-shadow:none}
+.home-meal-img{width:100%;height:180px;object-fit:cover;display:block;object-position:center 30%}
+.home-meal-img-placeholder{width:100%;height:180px;background:var(--bg-muted);display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:36px}
+.home-meal-body{padding:14px 16px}
+.home-meal-type{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:4px}
+.home-meal-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;line-height:1.2}
+.home-meal-side{font-size:12px;color:var(--text-faint);margin-top:3px}
+.home-meal-empty-label{font-size:13px;color:var(--text-faint);text-align:center;padding:1rem}
+.home-actions{display:flex;gap:8px;margin-bottom:2rem;flex-wrap:wrap}
+/* Mini calendar */
+.mini-cal{margin-top:.5rem}
+.mini-cal-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:.75rem}
+.mini-cal-weeks{display:flex;flex-direction:column;gap:8px}
+.mini-cal-week{display:grid;grid-template-columns:140px 1fr 1fr;gap:12px;align-items:center;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius);font-size:13px}
+.mini-cal-week:hover{border-color:#c8bfb5;cursor:pointer}
+.mini-cal-date{font-size:12px;font-weight:600;color:var(--text)}
+.mini-cal-meal{font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-cal-meal span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-right:5px}
+.mini-cal-badge{font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;white-space:nowrap}
+.mini-cal-badge.committed{background:#D6F0E0;color:#0A5C2E}
+.mini-cal-badge.draft{background:var(--bg-muted);color:var(--text-faint)}
+
 /* Commit + history */
 .commit-btn{background:#181818;color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:'Inter',inherit;cursor:pointer;display:flex;align-items:center;gap:7px;transition:opacity .15s}
 .commit-btn:hover{opacity:.82}
@@ -217,15 +252,28 @@ h1 i{font-size:22px;opacity:.5}
 <div class="app">
   <div class="header">
     <h1><i class="ti ti-book-2"></i> West Family Recipe Vault</h1>
-    <div style="display:flex;gap:8px"><button class="btn" onclick="openHistory()"><i class="ti ti-clock-history"></i> History</button><button class="btn" onclick="openPlanner()"><i class="ti ti-calendar-week"></i> Meal planner</button><button class="btn primary" onclick="openAdd()"><i class="ti ti-plus"></i> Add recipe</button></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="openHistory()"><i class="ti ti-clock-history"></i> History</button>
+      <button class="btn primary" onclick="openAdd()"><i class="ti ti-plus"></i> Add recipe</button>
+    </div>
   </div>
-  <div class="filters" id="filters"></div>
+  <nav class="tab-nav">
+    <button class="tab-btn active" id="tab-home" onclick="switchTab('home')"><i class="ti ti-home"></i> This week</button>
+    <button class="tab-btn" id="tab-recipes" onclick="switchToRecipes()"><i class="ti ti-bowl-chopsticks"></i> Recipes</button>
+  </nav>
+  <div id="tab-home-panel">
+    <div id="home-week-panel"></div>
+    <div id="home-calendar-panel"></div>
+    <div id="shop-modal-area"></div>
+  </div>
+  <div id="tab-recipes-panel" style="display:none">
+    <div class="filters" id="filters"></div>
+    <div id="add-form-area"></div>
+    <div class="grid" id="grid"></div>
+  </div>
   <div id="planner-area"></div>
   <div id="history-area"></div>
-  <div id="add-form-area"></div>
-  <div class="grid" id="grid"></div>
   <div id="modal-area"></div>
-  <div id="shop-modal-area"></div>
 </div>
 
 <script>
@@ -435,18 +483,19 @@ async function init() {
     return;
   }
   recipes = data.map(dbToRecipe);
-  // Load current week plan for card badges
-  const sunday = getSundayStr();
-  const { data: planData } = await db.from('meal_plans').select('*').eq('week_start', sunday).maybeSingle();
-  if (planData?.plan) {
+  // Load home data (plans + current week)
+  await loadHomeData();
+  // Set card badges from current week plan
+  if (homePlan) {
     currentWeekPlan = {
-      lunch: planData.plan.lunch?.mainId || null,
-      dinner: planData.plan.dinner?.mainId || null,
-      kidsLunch: planData.plan.kidsLunch?.mainId || null
+      lunch: homePlan.lunch?.mainId || null,
+      dinner: homePlan.dinner?.mainId || null,
+      kidsLunch: homePlan.kidsLunch?.mainId || null
     };
   }
   renderFilters();
   renderGrid();
+  renderHome();
 }
 
 function hostName(url) {
@@ -1350,6 +1399,146 @@ async function saveRecipe() {
   renderGrid();
 }
 
+// -- Tab navigation -----------------------------------------
+let activeTab = 'home';
+
+function switchToRecipes() { switchTab('recipes'); }
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-home-panel').style.display = tab === 'home' ? '' : 'none';
+  document.getElementById('tab-recipes-panel').style.display = tab === 'recipes' ? '' : 'none';
+  document.getElementById('tab-home').classList.toggle('active', tab === 'home');
+  document.getElementById('tab-recipes').classList.toggle('active', tab === 'recipes');
+  if (tab === 'home') renderHome();
+}
+
+// -- Home screen --------------------------------------------
+let homeWeekStart = getSundayStr();
+let homePlan = null;
+let allPlans = [];
+
+async function loadHomeData() {
+  const res = await fetch(SB_URL + '/rest/v1/meal_plans?select=*&order=week_start.desc&limit=12', { headers: SB_HEADERS });
+  allPlans = await res.json();
+  const thisWeek = allPlans.find(p => p.week_start === homeWeekStart);
+  homePlan = thisWeek ? normalizePlan(thisWeek) : emptyPlan();
+  homePlan._committed = thisWeek?.committed || false;
+  homePlan._committedAt = thisWeek?.committed_at || null;
+}
+
+async function renderHome() {
+  if (!homePlan) await loadHomeData();
+  renderHomeWeek();
+  renderMiniCalendar();
+}
+
+function mealCard(recipe, side, type, who) {
+  if (!recipe) {
+    return '<div class="home-meal-card empty" onclick="switchToRecipes()">'
+      + '<div class="home-meal-img-placeholder"><i class="ti ti-plus"></i></div>'
+      + '<div class="home-meal-body"><div class="home-meal-type">' + type + '</div>'
+      + '<div class="home-meal-empty-label">Tap to browse & add</div></div></div>';
+  }
+  return '<div class="home-meal-card" onclick="openModal(' + recipe.id + ')">'
+    + (recipe.image ? '<img class="home-meal-img" src="' + recipe.image + '" alt="' + escHtml(recipe.title) + '" loading="lazy">' : '<div class="home-meal-img-placeholder"><i class="ti ti-bowl-chopsticks"></i></div>')
+    + '<div class="home-meal-body">'
+    + '<div class="home-meal-type">' + type + '<span style="font-weight:400;color:var(--text-faint);margin-left:6px;text-transform:none;letter-spacing:0">' + who + '</span></div>'
+    + '<div class="home-meal-name">' + escHtml(recipe.title) + '</div>'
+    + (side ? '<div class="home-meal-side">+ ' + escHtml(side.title) + '</div>' : '')
+    + '</div></div>';
+}
+
+function renderHomeWeek() {
+  const el = document.getElementById('home-week-panel');
+  if (!el) return;
+  const plan = homePlan || emptyPlan();
+  const lunch = plan.lunch?.mainId ? recipes.find(r => r.id === plan.lunch.mainId) : null;
+  const lunchSide = plan.lunch?.sideId ? recipes.find(r => r.id === plan.lunch.sideId) : null;
+  const dinner = plan.dinner?.mainId ? recipes.find(r => r.id === plan.dinner.mainId) : null;
+  const dinnerSide = plan.dinner?.sideId ? recipes.find(r => r.id === plan.dinner.sideId) : null;
+  const kidsLunch = plan.kidsLunch?.enabled && plan.kidsLunch?.mainId ? recipes.find(r => r.id === plan.kidsLunch.mainId) : null;
+  const hasAny = lunch || dinner;
+  const committed = plan._committed;
+
+  el.innerHTML = '<div class="home-week-header">'
+    + '<div><div class="home-week-sub">Meal prep week</div><div class="home-week-title">' + weekLabel(homeWeekStart) + '</div></div>'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    + (committed
+        ? '<span style="font-size:12px;color:#0A5C2E"><i class="ti ti-circle-check"></i> Committed ' + (plan._committedAt ? new Date(plan._committedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '') + '</span>'
+        : (hasAny ? '<button class="commit-btn" onclick="commitFromHome()"><i class="ti ti-circle-check"></i> Commit this week</button>' : ''))
+    + (hasAny ? ' <button class="btn" onclick="homeShoppingList()"><i class="ti ti-shopping-cart"></i> Shopping list</button>' : '')
+    + ' <button class="btn" onclick="openPlanner()"><i class="ti ti-edit"></i> Edit plan</button>'
+    + '</div></div>'
+    + '<div class="home-meal-grid">'
+    + mealCard(lunch, lunchSide, 'Lunch', 'Bret & Sadie')
+    + mealCard(dinner, dinnerSide, 'Dinner', 'Whole family')
+    + '</div>'
+    + (kidsLunch ? '<div style="margin-top:-8px;margin-bottom:1.5rem">' + mealCard(kidsLunch, null, 'Kids Lunch', 'Griffin & Taylor') + '</div>' : '')
+    + '<div id="home-shop-result"></div>';
+}
+
+function renderMiniCalendar() {
+  const el = document.getElementById('home-calendar-panel');
+  if (!el) return;
+  const pastPlans = allPlans.filter(p => p.week_start !== homeWeekStart && (p.plan?.lunch?.mainId || p.plan?.dinner?.mainId));
+  if (!pastPlans.length) { el.innerHTML = ''; return; }
+  const weeks = pastPlans.slice(0, 8).map(p => {
+    const plan = p.plan || {};
+    const lunch = plan.lunch?.mainId ? recipes.find(r=>r.id===plan.lunch.mainId)?.title : null;
+    const dinner = plan.dinner?.mainId ? recipes.find(r=>r.id===plan.dinner.mainId)?.title : null;
+    const badge = p.committed
+      ? '<span class="mini-cal-badge committed"><i class="ti ti-check"></i> Done</span>'
+      : '<span class="mini-cal-badge draft">Draft</span>';
+    return '<div class="mini-cal-week" onclick="handleCalClick(event)">'
+      + '<div style="display:flex;flex-direction:column;gap:3px"><div class="mini-cal-date">' + weekLabel(p.week_start) + '</div>' + badge + '</div>'
+      + '<div class="mini-cal-meal">' + (lunch ? '<span>L</span>' + escHtml(lunch) : '') + '</div>'
+      + '<div class="mini-cal-meal">' + (dinner ? '<span>D</span>' + escHtml(dinner) : '') + '</div>'
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div class="mini-cal"><div class="mini-cal-title">Recent weeks</div>'
+    + '<div class="mini-cal-weeks">' + weeks + '</div></div>';
+}
+
+async function jumpToWeek(weekStart) {
+  homeWeekStart = weekStart;
+  const p = allPlans.find(p => p.week_start === weekStart);
+  homePlan = p ? normalizePlan(p) : emptyPlan();
+  homePlan._committed = p?.committed || false;
+  homePlan._committedAt = p?.committed_at || null;
+  renderHomeWeek();
+  renderMiniCalendar();
+}
+
+async function commitFromHome() {
+  const now = new Date().toISOString();
+  await db.from('meal_plans').upsert({ week_start: homeWeekStart, lunches: [], dinners: [],
+    plan: homePlan, committed: true, committed_at: now, updated_at: now }, { onConflict: 'week_start' });
+  homePlan._committed = true; homePlan._committedAt = now;
+  const cookDate = new Date(homeWeekStart + 'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+  const ids = [homePlan.lunch?.mainId, homePlan.lunch?.sideId, homePlan.dinner?.mainId, homePlan.dinner?.sideId,
+    ...(homePlan.kidsLunch?.enabled ? [homePlan.kidsLunch?.mainId] : [])].filter(Boolean);
+  for (const id of [...new Set(ids)]) {
+    const r = recipes.find(rec => rec.id === id);
+    if (!r) continue;
+    if (!r.cookedDates) r.cookedDates = [];
+    if (!r.cookedDates.includes(cookDate)) { r.cookedDates.push(cookDate); await save(r); }
+  }
+  const existing = allPlans.find(p => p.week_start === homeWeekStart);
+  if (existing) { existing.committed = true; existing.committed_at = now; }
+  renderHomeWeek(); renderGrid();
+}
+
+async function homeShoppingList() {
+  plannerPlan = homePlan; plannerWeekStart = homeWeekStart;
+  buildWeeklyShopList();
+  // Show result in home screen
+  const shopEl = document.getElementById('planner-shop');
+  if (shopEl) {
+    document.getElementById('home-shop-result').innerHTML = shopEl.outerHTML;
+  }
+}
+
 // -- Meal Planner ------------------------------------------
 // -- Family profiles ---------------------------------------
 // -- Family profiles ---------------------------------------
@@ -1436,11 +1625,16 @@ async function shiftPlannerWeek(dir) {
 async function savePlan() {
   await db.from('meal_plans').upsert({
     week_start: plannerWeekStart,
-    lunches: [],   // kept for schema compat
-    dinners: [],
+    lunches: [], dinners: [],
     plan: plannerPlan,
+    committed: plannerPlan._committed || false,
+    committed_at: plannerPlan._committedAt || null,
     updated_at: new Date().toISOString()
   }, { onConflict: 'week_start' });
+  const idx = allPlans.findIndex(p => p.week_start === plannerWeekStart);
+  const record = { week_start: plannerWeekStart, plan: plannerPlan, committed: plannerPlan._committed||false, committed_at: plannerPlan._committedAt||null };
+  if (idx >= 0) allPlans[idx] = record; else allPlans.unshift(record);
+  if (plannerWeekStart === homeWeekStart) { homePlan = plannerPlan; renderHomeWeek(); }
 }
 
 async function copyPlanForward() {
