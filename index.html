@@ -279,7 +279,7 @@ function evalFraction(s) {
 
 function parseIngredients(raw) {
   return raw.split('\n').filter(l => l.trim()).map(line => {
-    line = line.trim().replace(/^[-•*]\s*/, '');
+    line = line.trim().replace(/^[--*]\s*/, '');
     const m = line.match(/^([\d\/\s\.\-]+)\s*(cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|oz|ounce|ounces|lb|lbs|pound|pounds|fl oz|pt|pint|pints|qt|quart|quarts|gal|gallon|g|gram|grams|kg|kilogram|ml|l|liter|liters)?\s*(.+)?$/i);
     if (m) {
       const qty = m[1] ? evalFraction(m[1].trim()) : null;
@@ -312,7 +312,7 @@ function formatQty(qty, unit, scale, metric) {
   return displayUnit ? `${display} ${displayUnit}` : display;
 }
 
-// ── Supabase (raw fetch — no SDK) ─────────────────────────
+// -- Supabase (raw fetch - no SDK) -------------------------
 const SB_URL = 'https://fmjhhtwnjfwsecvingyi.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtamhodHduamZ3c2VjdmluZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjM3NDUsImV4cCI6MjA5NTE5OTc0NX0.b_qLaSkIlpwWPbk_fHSmPKuqSbbUWkddgS7Cr4s0MhI';
 
@@ -763,7 +763,7 @@ function renderModal() {
             </div>
             <div class="serv-row">
               <span>Servings</span>
-              <button class="btn sc-btn" onclick="adjustScale(-1)">−</button>
+              <button class="btn sc-btn" onclick="adjustScale(-1)">-</button>
               <span class="serv-val">${servings}</span>
               <button class="btn sc-btn" onclick="adjustScale(1)">+</button>
             </div>
@@ -810,7 +810,7 @@ function renderModal() {
             <div class="section-label">Comments</div>
             ${(r.comments&&r.comments.length) ? `<ul class="comments-list">${r.comments.map(c=>`<li><span>${escHtml(c.text)}</span><span class="comment-meta">${c.date}</span></li>`).join('')}</ul>` : ''}
             <div class="comment-input-row">
-              <input type="text" id="new-comment-${r.id}" placeholder="Add a note about this recipe…" onkeydown="if(event.key==='Enter')addComment(${r.id})">
+              <input type="text" id="new-comment-${r.id}" placeholder="Add a note about this recipe..." onkeydown="if(event.key==='Enter')addComment(${r.id})">
               <button class="btn" onclick="addComment(${r.id})">Add</button>
             </div>
           </div>
@@ -858,9 +858,9 @@ function renderIngredients(ingredients, scale, metric) {
 // Store aisle ordering for shopping list
 // Section assignment uses two-tier matching:
 // 1. EXACT_PHRASES checked first (compound ingredients that would otherwise misfire)
-// 2. STORE_SECTIONS with ordered sections — Canned before Produce so "tomato paste" hits Canned first
+// 2. STORE_SECTIONS with ordered sections - Canned before Produce so "tomato paste" hits Canned first
 const EXACT_PHRASES = [
-  // Canned & Jarred — must come before produce keywords catch them
+  // Canned & Jarred - must come before produce keywords catch them
   { phrases: ['tomato paste','crushed tomato','diced tomato','tomato sauce','stewed tomato'], label: 'Canned & Jarred' },
   { phrases: ['coconut milk','coconut cream'], label: 'Canned & Jarred' },
   { phrases: ['chili bean','black bean','kidney bean','pinto bean','cannellini bean','white bean','garbanzo','chickpea'], label: 'Canned & Jarred' },
@@ -871,17 +871,17 @@ const EXACT_PHRASES = [
   { phrases: ['pickle','dill pickle'], label: 'Canned & Jarred' },
   { phrases: ['olive'], label: 'Canned & Jarred' },
   { phrases: ['artichoke'], label: 'Canned & Jarred' },
-  // Frozen — before generic keywords
+  // Frozen - before generic keywords
   { phrases: ['frozen pea','frozen corn','frozen green bean','frozen edamame','frozen spinach','tater tot','frozen vegetable'], label: 'Frozen' },
-  // Sauces — before oil/vinegar catch generic terms
+  // Sauces - before oil/vinegar catch generic terms
   { phrases: ['soy sauce','tamari','worcestershire','chili garlic sauce','hot sauce','sriracha','hoisin','teriyaki','fish sauce','oyster sauce'], label: 'Oils, Vinegars & Sauces' },
   { phrases: ['apple cider vinegar','rice vinegar','balsamic vinegar','white vinegar','red wine vinegar'], label: 'Oils, Vinegars & Sauces' },
   { phrases: ['maple syrup','agave','simple syrup'], label: 'Oils, Vinegars & Sauces' },
-  { phrases: ['sesame oil','toasted sesame oil','canola oil','avocado oil','vegetable oil','olive oil','coconut oil','neutral oil'], label: 'Oils, Vinegars & Sauces' },
+  { phrases: ['sesame oil','toasted sesame oil','neutral oil','avocado oil','vegetable oil','olive oil','coconut oil','neutral oil'], label: 'Oils, Vinegars & Sauces' },
   { phrases: ['dijon mustard','yellow mustard','whole grain mustard'], label: 'Oils, Vinegars & Sauces' },
   { phrases: ['vegan mayo','vegan mayonnaise'], label: 'Oils, Vinegars & Sauces' },
   { phrases: ['peanut butter','almond butter','tahini'], label: 'Nuts, Seeds & Dried Fruit' },
-  // Refrigerated proteins — before generic milk catches plant milk
+  // Refrigerated proteins - before generic milk catches plant milk
   { phrases: ['plant-based meat','plant based meat','impossible ground','impossible beef','beyond beef','beyond meat'], label: 'Refrigerated' },
   { phrases: ['extra-firm tofu','extra firm tofu','firm tofu','medium-firm tofu','silken tofu','soft tofu'], label: 'Refrigerated' },
   { phrases: ['tempeh'], label: 'Refrigerated' },
@@ -894,7 +894,7 @@ const EXACT_PHRASES = [
   { phrases: ['panko','breadcrumb'], label: 'Dry Goods & Baking' },
   { phrases: ['brown rice','basmati rice','jasmine rice','white rice','wild rice'], label: 'Dry Goods & Baking' },
   { phrases: ['corn chip'], label: 'Dry Goods & Baking' },
-  // Produce — whole fresh items
+  // Produce - whole fresh items
   { phrases: ['green onion','green chile','jalapeño','bell pepper','green pepper','red pepper','yellow pepper'], label: 'Fresh Produce' },
   { phrases: ['cremini mushroom','portobello','shiitake','white mushroom'], label: 'Fresh Produce' },
   { phrases: ['bok choy','baby bok choy'], label: 'Fresh Produce' },
@@ -929,7 +929,7 @@ function assignSection(name) {
 }
 
 
-// ── Produce real-world equivalents ────────────────────────
+// -- Produce real-world equivalents ------------------------
 // Maps lowercase ingredient name keywords to conversion functions
 // qty is in the recipe unit (cups, tbsp, etc.)
 const PRODUCE_CONVERSIONS = [
@@ -1001,7 +1001,7 @@ function getProduceHint(name, qty, unit) {
 }
 
 
-// ── Shopping list: skip seasonings ────────────────────────
+// -- Shopping list: skip seasonings ------------------------
 const SKIP_INGREDIENTS = [
   'salt','black pepper','white pepper','pepper to taste','salt and pepper',
   'kosher salt','sea salt','ground pepper',
@@ -1020,7 +1020,7 @@ function shouldSkipIngredient(name) {
   });
 }
 
-// ── Package size hints (Fry's / Sprouts) ─────────────────
+// -- Package size hints (Fry's / Sprouts) -----------------
 // Each entry: match keywords (any), qty threshold, unit → hint string
 const PACKAGE_HINTS = [
   // Canned
@@ -1073,7 +1073,7 @@ function getPackageHint(name) {
 }
 
 
-// ── Ingredient name normalization for shopping list combining ──
+// -- Ingredient name normalization for shopping list combining --
 const PREP_STRIP = [
   // Prep verbs
   'cubed','diced','minced','chopped','sliced','shredded','grated','pressed',
@@ -1101,7 +1101,7 @@ const KEEP_QUALIFIERS = [
 function normalizeIngKey(name) {
   // 1. Strip parentheticals
   let n = name.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
-  // 2. Everything after first comma is prep notes — drop it
+  // 2. Everything after first comma is prep notes - drop it
   n = n.split(',')[0].trim();
   // 3. Strip prep words, but only standalone words (not parts of compound words)
   const words = n.split(/\s+/);
@@ -1190,7 +1190,7 @@ function openShoppingList(id) {
     <div class="shop-modal-bg" onclick="maybeCloseShop(event)">
       <div class="shop-modal">
         <button class="shop-close" onclick="closeShoppingList()"><i class="ti ti-x"></i></button>
-        <h2><i class="ti ti-shopping-cart" style="margin-right:6px"></i>Shopping list — ${escHtml(r.title)}</h2>
+        <h2><i class="ti ti-shopping-cart" style="margin-right:6px"></i>Shopping list - ${escHtml(r.title)}</h2>
         ${body}
         <div style="margin-top:1.25rem">
           <button class="btn" onclick="window.print()"><i class="ti ti-printer"></i> Print</button>
@@ -1285,12 +1285,12 @@ function renderAddForm() {
         <input type="url" id="new-img" placeholder="Paste image link from the recipe site">
       </div>
       <div class="field">
-        <label>Ingredients — one per line (e.g. "2 cups flour", "3 tbsp oil, divided")</label>
+        <label>Ingredients - one per line (e.g. "2 cups flour", "3 tbsp oil, divided")</label>
         <textarea id="new-ings" rows="7" placeholder="2 cups all-purpose flour&#10;1 tsp salt&#10;3 tbsp olive oil, divided&#10;2 large eggs&#10;1 lb ground beef"></textarea>
       </div>
       <div class="field">
-        <label>Instructions — one step per line</label>
-        <textarea id="new-inst" rows="7" placeholder="Mix the dry ingredients together in a large bowl.&#10;Add the wet ingredients and stir until just combined.&#10;Bake at 350°F for 25 minutes until golden."></textarea>
+        <label>Instructions - one step per line</label>
+        <textarea id="new-inst" rows="7" placeholder="Mix the dry ingredients together in a large bowl.&#10;Add the wet ingredients and stir until just combined.&#10;Bake at 350 degreesF for 25 minutes until golden."></textarea>
       </div>
       <div class="field">
         <label>Nutrition per serving (optional)</label>
@@ -1350,9 +1350,9 @@ async function saveRecipe() {
   renderGrid();
 }
 
-// ── Meal Planner ──────────────────────────────────────────
-// ── Family profiles ───────────────────────────────────────
-// ── Family profiles ───────────────────────────────────────
+// -- Meal Planner ------------------------------------------
+// -- Family profiles ---------------------------------------
+// -- Family profiles ---------------------------------------
 const FAMILY = {
   Bret:    { lunch: 600,  dinner: 750 },
   Sadie:   { lunch: 450,  dinner: 550 },
@@ -1360,7 +1360,7 @@ const FAMILY = {
   Taylor:  { lunch: 525,  dinner: 600 }
 };
 
-// ── Planner state ─────────────────────────────────────────
+// -- Planner state -----------------------------------------
 let showPlanner = false;
 let plannerWeekStart = getSundayStr();
 
@@ -1476,7 +1476,7 @@ function renderAutocomplete(slotKey, field, currentId, placeholder) {
       oninput="acSearch('${uid}','${slotKey}','${field}',this.value)"
       onfocus="acSearch('${uid}','${slotKey}','${field}',this.value)"
       onblur="setTimeout(()=>acClose('${uid}'),150)">
-    ${currentId ? `<button class="ac-clear" onclick="acClear('${slotKey}','${field}','${uid}')" tabindex="-1">×</button>` : ''}
+    ${currentId ? `<button class="ac-clear" onclick="acClear('${slotKey}','${field}','${uid}')" tabindex="-1">x</button>` : ''}
     <div class="ac-dropdown" id="acd-${uid}" style="display:none"></div>
   </div>`;
 }
@@ -1532,7 +1532,7 @@ function renderMealRow(key, label, cat, note) {
     <div class="plan-row-header">
       <span class="plan-row-label">${label}${note ? `<span class="planner-section-note">${note}</span>` : ''}</span>
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:11px;color:var(--text-faint)">${slot.meals}× meals</span>
+        <span style="font-size:11px;color:var(--text-faint)">${slot.meals}x meals</span>
         ${key === 'kidsLunch' ? `<button class="btn" style="font-size:11px;padding:3px 10px;color:#c0392b;border-color:#e8c0bb" onclick="disableKidsLunch()">Remove</button>` : ''}
       </div>
     </div>
