@@ -1054,7 +1054,16 @@ let plannerPlan = emptyPlan();
 
 function getSundayStr(offset=0) {
   const d = new Date();
-  d.setDate(d.getDate() - (d.getDay() % 7) + offset * 7);
+  // If today is Sunday (0), use today. Otherwise advance to next Sunday.
+  const daysUntilSunday = d.getDay() === 0 ? 0 : 7 - d.getDay();
+  d.setDate(d.getDate() + daysUntilSunday + offset * 7);
+  return d.toISOString().split('T')[0];
+}
+
+function getThisSundayStr() {
+  // Always returns the most recent Sunday (for "This week" button)
+  const d = new Date();
+  d.setDate(d.getDate() - (d.getDay() % 7));
   return d.toISOString().split('T')[0];
 }
 
@@ -1087,7 +1096,7 @@ async function openPlanner() {
 }
 
 async function shiftPlannerWeek(dir) {
-  if (dir === 0) { plannerWeekStart = getSundayStr(0); }
+  if (dir === 0) { plannerWeekStart = getSundayStr(0); } // Next/current Sunday
   else {
     const d = new Date(plannerWeekStart + 'T00:00:00');
     d.setDate(d.getDate() + dir * 7);
@@ -1107,6 +1116,25 @@ async function savePlan() {
     plan: plannerPlan,
     updated_at: new Date().toISOString()
   }, { onConflict: 'week_start' });
+}
+
+async function copyPlanForward() {
+  // Copy current viewed week plan to the next week
+  const d = new Date(plannerWeekStart + 'T00:00:00');
+  d.setDate(d.getDate() + 7);
+  const nextWeek = d.toISOString().split('T')[0];
+  const nextPlan = JSON.parse(JSON.stringify(plannerPlan)); // deep clone
+  await db.from('meal_plans').upsert({
+    week_start: nextWeek,
+    lunches: [],
+    dinners: [],
+    plan: nextPlan,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'week_start' });
+  // Navigate to next week
+  plannerWeekStart = nextWeek;
+  plannerPlan = nextPlan;
+  renderPlanner();
 }
 
 function recipeTitle(id) {
@@ -1206,10 +1234,13 @@ function renderPlanner() {
           <div class="planner-title"><i class="ti ti-calendar-week" style="font-size:18px;opacity:.5;margin-right:6px"></i>Meal Planner</div>
           <div class="planner-week">${weekLabel(plannerWeekStart)}</div>
         </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn" onclick="shiftPlannerWeek(-1)" style="padding:5px 10px"><i class="ti ti-chevron-left"></i></button>
-          <button class="btn" onclick="shiftPlannerWeek(0)" style="font-size:12px">This week</button>
-          <button class="btn" onclick="shiftPlannerWeek(1)" style="padding:5px 10px"><i class="ti ti-chevron-right"></i></button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn" onclick="copyPlanForward()" style="font-size:12px" title="Copy this week\'s plan to next week"><i class="ti ti-copy"></i> Copy to next week</button>
+          <div style="display:flex;gap:4px">
+            <button class="btn" onclick="shiftPlannerWeek(-1)" style="padding:5px 10px"><i class="ti ti-chevron-left"></i></button>
+            <button class="btn" onclick="shiftPlannerWeek(0)" style="font-size:12px">Next prep</button>
+            <button class="btn" onclick="shiftPlannerWeek(1)" style="padding:5px 10px"><i class="ti ti-chevron-right"></i></button>
+          </div>
         </div>
       </div>
 
