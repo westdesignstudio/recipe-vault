@@ -933,6 +933,64 @@ function getPackageHint(name) {
   return ph ? ph.hint : null;
 }
 
+
+// ── Ingredient name normalization for shopping list combining ──
+const PREP_STRIP = [
+  // Prep verbs
+  'cubed','diced','minced','chopped','sliced','shredded','grated','pressed',
+  'crumbled','mashed','roasted','toasted','cooked','halved','quartered',
+  'trimmed','peeled','seeded','pitted','torn','julienned','roughly','finely',
+  'thinly','patted','drained','rinsed','softened','thawed','blanched',
+  'sauteed','sautéed','caramelized','pureed','puréed','ground','crushed',
+  'dry','dried','and','or',
+  // Quantity nouns that sneak into names
+  'block','bunch','head','stalk','rib','sprig','clove','piece','slice',
+  'wedge','leaf','leaves','knob','handful','pinch',
+];
+
+// Words that ARE meaningful and should not be stripped
+const KEEP_QUALIFIERS = [
+  'extra-firm','firm','medium-firm','silken','soft',  // tofu types
+  'frozen','fresh','canned','dried',                   // state (product spec)
+  'unsweetened','sweetened','low sodium','light',      // product spec
+  'basmati','brown','white','wild','jasmine',          // rice types
+  'cremini','portobello','shiitake',                   // mushroom types
+  'red','yellow','white','green','black',              // color qualifiers (e.g. red onion)
+  'baby','mini','large','medium','small',              // size when meaningful
+];
+
+function normalizeIngKey(name) {
+  // 1. Strip parentheticals
+  let n = name.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+  // 2. Everything after first comma is prep notes — drop it
+  n = n.split(',')[0].trim();
+  // 3. Strip prep words, but only standalone words (not parts of compound words)
+  const words = n.split(/\s+/);
+  const filtered = words.filter(w => {
+    const lw = w.toLowerCase().replace(/[^a-z-]/g,'');
+    // Keep if it's a meaningful qualifier
+    if (KEEP_QUALIFIERS.some(k => lw === k || lw.startsWith(k))) return true;
+    // Drop pure prep/quantity words
+    if (PREP_STRIP.includes(lw)) return false;
+    return true;
+  });
+  return filtered.join(' ').trim().toLowerCase();
+}
+
+function cleanDisplayName(name) {
+  // Same as normalizeIngKey but returns properly cased version
+  let n = name.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+  n = n.split(',')[0].trim();
+  const words = n.split(/\s+/);
+  const filtered = words.filter(w => {
+    const lw = w.toLowerCase().replace(/[^a-z-]/g,'');
+    if (KEEP_QUALIFIERS.some(k => lw === k || lw.startsWith(k))) return true;
+    if (PREP_STRIP.includes(lw)) return false;
+    return true;
+  });
+  return filtered.join(' ').trim();
+}
+
 function openShoppingList(id) {
   const r = recipes.find(rec => rec.id === id);
   if (!r) return;
@@ -942,11 +1000,10 @@ function openShoppingList(id) {
   // Combine like ingredients by normalized name
   const combined = {};
   r.ingredients.forEach(ing => {
-    const baseName = ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim().toLowerCase();
-    if (!baseName) return;
     if (shouldSkipIngredient(ing.name)) return;
-    const key = baseName;
-    if (!combined[key]) combined[key] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim(), entries: [] };
+    const key = normalizeIngKey(ing.name);
+    if (!key) return;
+    if (!combined[key]) combined[key] = { name: cleanDisplayName(ing.name), entries: [] };
     if (ing.qty !== null) combined[key].entries.push({ qty: ing.qty * scale, unit: ing.unit, metric });
     else combined[key].entries.push({ qty: null, unit: ing.unit, metric });
   });
@@ -1444,10 +1501,10 @@ function buildWeeklyShopList() {
     const r = recipes.find(rec => rec.id === parseInt(id));
     if (!r) return;
     (r.ingredients || []).forEach(ing => {
-      const key = ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim().toLowerCase();
-      if (!key) return;
       if (shouldSkipIngredient(ing.name)) return;
-      if (!combined[key]) combined[key] = { name: ing.name.replace(/\s*\([^)]*\)\s*/g, '').trim(), entries: [] };
+      const key = normalizeIngKey(ing.name);
+      if (!key) return;
+      if (!combined[key]) combined[key] = { name: cleanDisplayName(ing.name), entries: [] };
       if (ing.qty !== null) combined[key].entries.push({ qty: ing.qty * scale, unit: ing.unit });
       else combined[key].entries.push({ qty: null, unit: ing.unit });
     });
