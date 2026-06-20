@@ -738,6 +738,78 @@ function assignSection(name) {
   return 'Other';
 }
 
+
+// ── Produce real-world equivalents ────────────────────────
+// Maps lowercase ingredient name keywords to conversion functions
+// qty is in the recipe unit (cups, tbsp, etc.)
+const PRODUCE_CONVERSIONS = [
+  // Vegetables
+  { match: ['carrot','carrots'],          cups_per_unit: 0.5,   unit: 'medium carrot' },
+  { match: ['celery','celery stalk','ribs celery'], cups_per_unit: 0.5, unit: 'stalk celery' },
+  { match: ['onion','yellow onion','white onion','red onion'], cups_per_unit: 1.5, unit: 'medium onion' },
+  { match: ['green onion','scallion'],    cups_per_unit: 0.125, unit: 'green onion' },
+  { match: ['garlic clove','cloves garlic','clove garlic'], each: true, unit: 'clove garlic' },
+  { match: ['bell pepper','green pepper','red pepper'], cups_per_unit: 1.0, unit: 'medium pepper' },
+  { match: ['mushroom'],                  cups_per_unit: 0.75,  unit: 'oz mushrooms', oz_per_cup: 2.8 },
+  { match: ['cauliflower floret','cauliflower'], cups_per_unit: null, whole: '1 medium head = ~6 cups florets', unit: 'head cauliflower' },
+  { match: ['zucchini'],                  cups_per_unit: 1.0,   unit: 'medium zucchini' },
+  { match: ['potato','potatoes'],         cups_per_unit: 1.5,   unit: 'medium potato' },
+  { match: ['sweet potato'],              cups_per_unit: 1.25,  unit: 'medium sweet potato' },
+  { match: ['broccoli'],                  cups_per_unit: null,  whole: '1 head = ~3 cups', unit: 'head broccoli' },
+  { match: ['spinach'],                   cups_per_unit: 1.0,   unit: 'oz spinach', oz_per_cup: 1.0 },
+  { match: ['kale'],                      cups_per_unit: null,  whole: '1 bunch = ~4 cups', unit: 'bunch kale' },
+  { match: ['cucumber'],                  cups_per_unit: 1.5,   unit: 'medium cucumber' },
+  { match: ['tomato'],                    cups_per_unit: 0.75,  unit: 'medium tomato' },
+  // Fruits & herbs
+  { match: ['lemon'],                     each: true,           unit: 'lemon' },
+  { match: ['lime'],                      each: true,           unit: 'lime' },
+  { match: ['avocado'],                   each: true,           unit: 'avocado' },
+  { match: ['ginger','fresh ginger'],     cups_per_unit: null,  tbsp_per_inch: 1, unit: 'inch piece ginger' },
+  { match: ['cilantro'],                  cups_per_unit: null,  whole: '1 bunch', unit: 'bunch cilantro' },
+  { match: ['green chile','chile pepper'], each: true,          unit: 'green chile' },
+];
+
+function getProduceHint(name, qty, unit) {
+  const lower = name.toLowerCase();
+  const conv = PRODUCE_CONVERSIONS.find(c => c.match.some(m => lower.includes(m)));
+  if (!conv) return null;
+
+  // If ingredient is already counted (e.g. "4 cloves garlic", "2 stalks celery")
+  if (conv.each || unit === null) {
+    // qty is already the count
+    if (qty === null) return null;
+    const count = Math.ceil(qty);
+    return `~${count} ${count === 1 ? conv.unit : conv.unit + 's'}`;
+  }
+
+  if (qty === null) return conv.whole || null;
+
+  // Convert qty to cups first
+  let cups = qty;
+  if (unit === 'tbsp') cups = qty / 16;
+  else if (unit === 'tsp') cups = qty / 48;
+  else if (unit === 'oz') cups = qty / 8;
+  else if (unit === 'l') cups = qty * 4.23;
+  else if (unit === 'ml') cups = qty / 237;
+
+  if (conv.whole) return conv.whole;
+  if (conv.oz_per_cup) {
+    const oz = Math.ceil(cups * conv.oz_per_cup * 10) / 10;
+    return `~${oz} oz`;
+  }
+  if (conv.tbsp_per_inch) {
+    const inches = Math.ceil(cups * 16 / conv.tbsp_per_inch);
+    return `~${inches}-inch piece`;
+  }
+  if (conv.cups_per_unit) {
+    const count = cups / conv.cups_per_unit;
+    const rounded = count < 1 ? Math.ceil(count * 4) / 4 : Math.ceil(count * 2) / 2;
+    if (rounded <= 0) return null;
+    return `~${rounded % 1 === 0 ? rounded : rounded.toFixed(1)} ${rounded === 1 ? conv.unit : conv.unit + 's'}`;
+  }
+  return null;
+}
+
 function openShoppingList(id) {
   const r = recipes.find(rec => rec.id === id);
   if (!r) return;
@@ -777,7 +849,8 @@ function openShoppingList(id) {
       const parts = Object.entries(byUnit).map(([u, q]) => formatQty(q, u || null, 1, metric));
       display = parts.join(' + ');
     }
-    sections[sec].push({ name: item.name, display });
+    const produceHint = sec === 'Fresh Produce' ? getProduceHint(item.name, item.entries[0]?.qty ?? null, item.entries[0]?.unit ?? null) : null;
+    sections[sec].push({ name: item.name, display, produceHint });
   });
 
   // Render in store section order
@@ -1237,7 +1310,8 @@ function buildWeeklyShopList() {
       item.entries.forEach(e => { if (e.qty == null) return; const u = e.unit || ''; byUnit[u] = (byUnit[u] || 0) + e.qty; });
       display = Object.entries(byUnit).map(([u, q]) => formatQty(q, u || null, 1, false)).join(' + ') || 'to taste';
     }
-    sections[sec].push({ name: item.name, display });
+    const produceHint = sec === 'Fresh Produce' ? getProduceHint(item.name, item.entries[0]?.qty ?? null, item.entries[0]?.unit ?? null) : null;
+    sections[sec].push({ name: item.name, display, produceHint });
   });
 
   // Share text
@@ -1254,7 +1328,7 @@ function buildWeeklyShopList() {
   STORE_SECTIONS.forEach(sec => {
     const items = sections[sec.label];
     if (!items?.length) return;
-    shareText += `\n${sec.label.toUpperCase()}\n` + items.map(i => `\u2022 ${i.name}${i.display ? ' \u2014 ' + i.display : ''}`).join('\n') + '\n';
+    shareText += `\n${sec.label.toUpperCase()}\n` + items.map(i => `\u2022 ${i.name}${i.display ? ' \u2014 ' + i.display : ''}${i.produceHint ? ' / ' + i.produceHint : ''}`).join('\n') + '\n';
   });
 
   // Render
@@ -1263,7 +1337,10 @@ function buildWeeklyShopList() {
     const items = sections[sec.label];
     if (!items?.length) return;
     listHtml += `<div class="plan-shop-section">${sec.label}</div><ul class="plan-shop-items">`;
-    items.forEach(i => { listHtml += `<li><span>${escHtml(i.name)}</span><span style="color:var(--text-faint)">${escHtml(i.display)}</span></li>`; });
+    items.forEach(i => {
+      const hint = i.produceHint ? `<span style="color:var(--text-faint);font-size:11px"> / ${escHtml(i.produceHint)}</span>` : '';
+      listHtml += `<li><span>${escHtml(i.name)}</span><span style="color:var(--text-faint)">${escHtml(i.display)}${hint}</span></li>`;
+    });
     listHtml += '</ul>';
   });
 
